@@ -68,22 +68,23 @@ class _LoginPageState extends State<LoginPage> {
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(
-            builder: (_) => EmailVerificationPage(
-              email: _emailController.text.trim(),
-            ),
+            builder: (_) =>
+                EmailVerificationPage(email: _emailController.text.trim()),
           ),
         );
         return;
       }
 
       // 3) Check if profile exists
-      final profile = await _service.getUserByEmail(_emailController.text.trim());
+      final profile = await _service.getUserByEmail(
+        _emailController.text.trim(),
+      );
 
       if (profile == null) {
         // Create profile from metadata - FIX: Pass user.id as userId
         final userMetadata = user.userMetadata;
         await _service.createUserProfile(
-          userId: user.id,  // ✅ FIXED: Pass the user ID here
+          userId: user.id, // ✅ FIXED: Pass the user ID here
           name: userMetadata?['name'] ?? 'User',
           email: _emailController.text.trim(),
           role: userMetadata?['role'] ?? 'Student',
@@ -93,18 +94,21 @@ class _LoginPageState extends State<LoginPage> {
           academicYear: userMetadata?['academic_year'] ?? 1,
           location: userMetadata?['location'],
         );
-        
+
         print("✅ Profile created for user: ${user.id}");
       }
 
       // 4) Get user role and ID to determine navigation
-      final userProfile = await _service.getUserByEmail(_emailController.text.trim());
+      final userProfile = await _service.getUserByEmail(
+        _emailController.text.trim(),
+      );
       final userRole = userProfile?['role'] ?? 'Student';
-      final userId = userProfile?['user_id'] as int? ?? 0; // ✅ Get the user_id as int
+      final userId =
+          userProfile?['user_id'] as int? ?? 0; // ✅ Get the user_id as int
 
       // 5) Success
       if (!mounted) return;
-      
+
       messenger.showSnackBar(
         const SnackBar(
           content: Text("✅ Login successful! Welcome back!"),
@@ -116,7 +120,7 @@ class _LoginPageState extends State<LoginPage> {
       await Future.delayed(const Duration(milliseconds: 500));
 
       if (!mounted) return;
-      
+
       // 6) Navigate based on role
       if (userRole == 'Admin') {
         Navigator.pushReplacement(
@@ -130,13 +134,9 @@ class _LoginPageState extends State<LoginPage> {
           MaterialPageRoute(builder: (_) => HomePage(currentUserId: userId)),
         );
       }
-
     } on AuthException catch (e) {
       messenger.showSnackBar(
-        SnackBar(
-          content: Text("❌ ${e.message}"),
-          backgroundColor: Colors.red,
-        ),
+        SnackBar(content: Text("❌ ${e.message}"), backgroundColor: Colors.red),
       );
     } catch (e) {
       messenger.showSnackBar(
@@ -173,7 +173,11 @@ class _LoginPageState extends State<LoginPage> {
                       color: Colors.red,
                       borderRadius: BorderRadius.circular(20),
                     ),
-                    child: const Icon(Icons.lock_outline, size: 50, color: Colors.white),
+                    child: const Icon(
+                      Icons.lock_outline,
+                      size: 50,
+                      color: Colors.white,
+                    ),
                   ),
                   const SizedBox(height: 40),
 
@@ -196,8 +200,13 @@ class _LoginPageState extends State<LoginPage> {
                     decoration: InputDecoration(
                       labelText: 'MIU Email',
                       hintText: 'example@miuegypt.edu.eg',
-                      prefixIcon: const Icon(Icons.email_outlined, color: Colors.red),
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                      prefixIcon: const Icon(
+                        Icons.email_outlined,
+                        color: Colors.red,
+                      ),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
                       filled: true,
                       fillColor: Colors.grey[50],
                     ),
@@ -218,15 +227,24 @@ class _LoginPageState extends State<LoginPage> {
                     obscureText: _obscurePassword,
                     decoration: InputDecoration(
                       labelText: 'Password',
-                      prefixIcon: const Icon(Icons.lock_outline, color: Colors.red),
+                      prefixIcon: const Icon(
+                        Icons.lock_outline,
+                        color: Colors.red,
+                      ),
                       suffixIcon: IconButton(
                         icon: Icon(
-                          _obscurePassword ? Icons.visibility_off : Icons.visibility,
+                          _obscurePassword
+                              ? Icons.visibility_off
+                              : Icons.visibility,
                           color: Colors.grey[600],
                         ),
-                        onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
+                        onPressed: () => setState(
+                          () => _obscurePassword = !_obscurePassword,
+                        ),
                       ),
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
                       filled: true,
                       fillColor: Colors.grey[50],
                     ),
@@ -245,8 +263,12 @@ class _LoginPageState extends State<LoginPage> {
                   Align(
                     alignment: Alignment.centerRight,
                     child: TextButton(
-                      onPressed: () => Navigator.pushNamed(context, '/forgot-password'),
-                      child: const Text('Forgot Password?', style: TextStyle(color: Colors.red)),
+                      onPressed: () =>
+                          Navigator.pushNamed(context, '/forgot-password'),
+                      child: const Text(
+                        'Forgot Password?',
+                        style: TextStyle(color: Colors.red),
+                      ),
                     ),
                   ),
                   const SizedBox(height: 24),
@@ -257,7 +279,9 @@ class _LoginPageState extends State<LoginPage> {
                       backgroundColor: Colors.red,
                       foregroundColor: Colors.white,
                       padding: const EdgeInsets.symmetric(vertical: 16),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
                       elevation: 2,
                     ),
                     child: _isLoading
@@ -266,12 +290,17 @@ class _LoginPageState extends State<LoginPage> {
                             width: 20,
                             child: CircularProgressIndicator(
                               strokeWidth: 2,
-                              valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                              valueColor: AlwaysStoppedAnimation<Color>(
+                                Colors.white,
+                              ),
                             ),
                           )
                         : const Text(
                             'Login',
-                            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                            ),
                           ),
                   ),
 
@@ -280,12 +309,18 @@ class _LoginPageState extends State<LoginPage> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Text("Don't have an account? ", style: TextStyle(color: Colors.grey[600])),
+                      Text(
+                        "Don't have an account? ",
+                        style: TextStyle(color: Colors.grey[600]),
+                      ),
                       GestureDetector(
                         onTap: () => Navigator.pushNamed(context, '/signup'),
                         child: const Text(
                           'Sign Up',
-                          style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold),
+                          style: TextStyle(
+                            color: Colors.red,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
                       ),
                     ],

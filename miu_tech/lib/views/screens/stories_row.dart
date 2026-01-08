@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'dart:ui';
 import '../../controllers/stories_controller.dart';
 import '../../models/user_stories.dart';
 import '../screens/story_viewer_screen.dart';
 import '../screens/create_story_screen.dart';
-import '../widgets/story_avatar.dart';
 
 class StoriesRow extends ConsumerWidget {
   const StoriesRow({super.key});
@@ -36,101 +36,233 @@ class StoriesRow extends ConsumerWidget {
 
     return storiesAsync.when(
       loading: () => const SizedBox(
-        height: 110,
+        height: 120,
         child: Center(child: CircularProgressIndicator()),
       ),
-      error: (e, _) => SizedBox(
-        height: 110,
-        child: Center(child: Text('Error: $e')),
-      ),
+      error: (e, _) =>
+          SizedBox(height: 120, child: Center(child: Text('Error: $e'))),
       data: (state) {
         final myStory = state.myStory;
         final friends = state.friendsStories;
 
         return SizedBox(
-          height: 110,
-          child: ListView(
+          height: 120,
+          child: ListView.builder(
             scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.symmetric(horizontal: 12),
-            children: [
+            itemCount: friends.length + 1,
+            itemBuilder: (context, index) {
               // ================= YOUR STORY =================
-              if (myStory != null)
-                Stack(
-                  alignment: Alignment.center,
-                  children: [
-                    GestureDetector(
-                      onTap: () {
-                        if (myStory.stories.isEmpty) {
-                          _navToCreate(context);
-                        } else {
-                          _navToView(context, [myStory], 0);
-                        }
-                      },
-                      child: StoryAvatar(
-                        userId: myStory.user.userId,
-                        avatarUrl: myStory.user.profileImage ?? '',
-                        username: 'Your story',
-                        hasUnseenStories: false,
-                        isYou: true,
-                      ),
-                    ),
-
-                    Positioned(
-                      bottom: 26,
-                      right: 2,
-                      child: GestureDetector(
-                        onTap: () => _navToCreate(context),
-                        child: Container(
-                          padding: const EdgeInsets.all(2),
-                          decoration: const BoxDecoration(
-                            color: Colors.black,
-                            shape: BoxShape.circle,
-                          ),
-                          child: Container(
-                            padding: const EdgeInsets.all(4),
-                            decoration: const BoxDecoration(
-                              color: Colors.blueAccent,
-                              shape: BoxShape.circle,
-                            ),
-                            child: const Icon(Icons.add,
-                                size: 16, color: Colors.white),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-
-              const SizedBox(width: 12),
-
-              // ================= FRIENDS STORIES =================
-              ...friends.map((friendStories) {
+              if (index == 0) {
                 return Padding(
                   padding: const EdgeInsets.only(right: 12),
                   child: GestureDetector(
-                    onTap: () => _navToView(
-                      context,
-                      friends,
-                      friends.indexOf(friendStories),
-                    ),
-                    child: StoryAvatar(
-                      key: ValueKey(
-                        '${friendStories.user.userId}_${friendStories.hasUnseen(currentUserId)}',
-                      ),
-                      userId: friendStories.user.userId,
-                      avatarUrl: friendStories.user.profileImage ?? '',
-                      username: friendStories.user.name,
-                      hasUnseenStories:
-                          friendStories.hasUnseen(currentUserId),
-                      isYou: false,
+                    onTap: () {
+                      if (myStory == null || myStory.stories.isEmpty) {
+                        _navToCreate(context);
+                      } else {
+                        _navToView(context, [myStory], 0);
+                      }
+                    },
+                    child: _StoryAdd(
+                      avatarUrl: myStory?.user.profileImage,
+                      hasStory: myStory?.stories.isNotEmpty ?? false,
+                      onAddTap: () => _navToCreate(context),
                     ),
                   ),
                 );
-              }),
-            ],
+              }
+
+              // ================= FRIENDS STORIES =================
+              final friendStory = friends[index - 1];
+              final hasUnseen = friendStory.hasUnseen(currentUserId);
+              // Safe fallback for potentially empty lists if data is malformed
+              final previewImageUrl = friendStory.stories.isNotEmpty
+                  ? friendStory.stories.first.mediaUrl
+                  : '';
+
+              return Padding(
+                padding: const EdgeInsets.only(right: 12),
+                child: GestureDetector(
+                  onTap: () => _navToView(context, friends, index - 1),
+                  child: _StoryCard(
+                    name: friendStory.user.name,
+                    imageUrl: previewImageUrl,
+                    avatarUrl: friendStory.user.profileImage,
+                    allSeen: !hasUnseen,
+                  ),
+                ),
+              );
+            },
           ),
         );
       },
+    );
+  }
+}
+
+//
+// ========================= MY STORY WIDGET =========================
+//
+class _StoryAdd extends StatelessWidget {
+  final String? avatarUrl;
+  final bool hasStory;
+  final VoidCallback onAddTap;
+
+  const _StoryAdd({
+    this.avatarUrl,
+    required this.hasStory,
+    required this.onAddTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 86,
+      child: Column(
+        children: [
+          Stack(
+            children: [
+              if (hasStory)
+                Container(
+                  padding: const EdgeInsets.all(3),
+                  decoration: const BoxDecoration(
+                    shape: BoxShape.circle,
+                    gradient: LinearGradient(
+                      colors: [Color(0xFFF44336), Color(0xFFFF9800)],
+                    ),
+                  ),
+                  child: _avatar(),
+                )
+              else
+                _avatar(),
+
+              Positioned(
+                bottom: 0,
+                right: 0,
+                child: GestureDetector(
+                  onTap: onAddTap,
+                  child: Container(
+                    width: 22,
+                    height: 22,
+                    decoration: BoxDecoration(
+                      color: Colors.red,
+                      shape: BoxShape.circle,
+                      border: Border.all(color: Colors.white, width: 2),
+                    ),
+                    child: const Icon(Icons.add, size: 16, color: Colors.white),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          const Text("My Story", style: TextStyle(fontSize: 12)),
+        ],
+      ),
+    );
+  }
+
+  Widget _avatar() {
+    return CircleAvatar(
+      radius: 32,
+      backgroundImage: (avatarUrl != null && avatarUrl!.isNotEmpty)
+          ? NetworkImage(avatarUrl!)
+          : null,
+      child: (avatarUrl == null || avatarUrl!.isEmpty)
+          ? const Icon(Icons.person)
+          : null,
+    );
+  }
+}
+
+//
+// ========================= FRIEND STORY CARD =========================
+//
+class _StoryCard extends StatelessWidget {
+  final String name;
+  final String imageUrl;
+  final String? avatarUrl;
+  final bool allSeen;
+
+  const _StoryCard({
+    required this.name,
+    required this.imageUrl,
+    required this.avatarUrl,
+    required this.allSeen,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 118,
+      child: Column(
+        children: [
+          Stack(
+            clipBehavior: Clip.none,
+            children: [
+              // 1. Rectangular Blurred Image Background
+              Container(
+                width: 110,
+                height: 72,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(18),
+                  gradient: LinearGradient(
+                    colors: allSeen
+                        ? [Colors.grey.shade400, Colors.grey.shade500]
+                        : [const Color(0xFFF44336), const Color(0xFFFF9800)],
+                  ),
+                ),
+                padding: const EdgeInsets.all(3),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(15),
+                  child: imageUrl.isNotEmpty
+                      ? ImageFiltered(
+                          imageFilter: ImageFilter.blur(sigmaX: 3, sigmaY: 3),
+                          child: Image.network(
+                            imageUrl,
+                            fit: BoxFit.cover,
+                            errorBuilder: (context, error, stackTrace) =>
+                                Container(color: Colors.grey.shade300),
+                          ),
+                        )
+                      : Container(color: Colors.grey.shade300),
+                ),
+              ),
+
+              // 2. Avatar Overlay
+              Positioned(
+                bottom: -14,
+                left: (110 / 2) - 29,
+                child: CircleAvatar(
+                  radius: 29,
+                  backgroundColor: Colors.white,
+                  child: CircleAvatar(
+                    radius: 26,
+                    backgroundImage:
+                        (avatarUrl != null && avatarUrl!.isNotEmpty)
+                        ? NetworkImage(avatarUrl!)
+                        : null,
+                    child: (avatarUrl == null || avatarUrl!.isEmpty)
+                        ? const Icon(Icons.person, size: 16)
+                        : null,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 20),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 4),
+            child: Text(
+              name,
+              style: const TextStyle(fontSize: 12),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              textAlign: TextAlign.center,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

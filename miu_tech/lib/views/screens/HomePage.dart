@@ -9,14 +9,13 @@ import '../widgets/top_navbar.dart';
 import '../widgets/bottom_navbar.dart';
 import '../widgets/user_drawer_header.dart';
 import '../widgets/category_chip.dart';
-import '../widgets/story_section.dart';
+import 'stories_row.dart';
 import 'package:provider/provider.dart';
 import '../../providers/post_provider.dart';
 import '../../providers/repost_provider.dart';
 import '../../controllers/user_controller.dart';
 import 'comments_page.dart';
 import 'package:confetti/confetti.dart';
-import '../../providers/StoryProvider.dart';
 import '../../providers/SavedPostProvider.dart';
 import '../../models/announcement_model.dart';
 import '../widgets/announcement_card.dart';
@@ -91,11 +90,6 @@ class _HomePageState extends State<HomePage> {
       duration: const Duration(seconds: 2),
     );
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<StoryProvider>().loadStories(
-        currentUserId: widget.currentUserId,
-        forYou: _showForYou,
-      );
-
       context.read<SavedPostProvider>().loadSavedPosts(widget.currentUserId);
     });
   }
@@ -158,18 +152,15 @@ class _HomePageState extends State<HomePage> {
           .map((item) => item.post!.postId)
           .toList();
 
-      for (final id in postIds) {
-        postProvider.loadPostLikes(id);
-      }
-
+      // 🟡 OPTIMIZED: Batch load instead of loop
       if (postIds.isNotEmpty) {
+        postProvider.loadLikesForPosts(postIds); // New method
         await repostProvider.loadRepostsForPosts(postIds);
       }
     } catch (e) {
       debugPrint('Error loading likes and reposts: $e');
     }
   }
-
 
   Future<void> _toggleFollow(int targetUserId, String userName) async {
     final existing = await supabase
@@ -443,31 +434,7 @@ class _HomePageState extends State<HomePage> {
                 const SizedBox(height: 20),
 
                 // ================= STORIES =================
-                FutureBuilder<Map<String, dynamic>?>(
-                  future: UserController.fetchUserData(widget.currentUserId),
-                  builder: (context, userSnapshot) {
-                    if (!userSnapshot.hasData) {
-                      return const SizedBox(
-                        height: 120,
-                        child: Center(child: CircularProgressIndicator()),
-                      );
-                    }
-
-                    final profileImage = userSnapshot.data?['profile_image'];
-                    return Consumer<StoryProvider>(
-                      builder: (context, storyProvider, _) {
-                        return StorySection(
-                          myAvatarUrl: profileImage,
-                          stories: storyProvider.stories,
-                          hasMyStory: storyProvider.stories.any(
-                            (s) => s['user_id'] == widget.currentUserId,
-                          ),
-                          currentUserId: widget.currentUserId,
-                        );
-                      },
-                    );
-                  },
-                ),
+                const StoriesRow(),
 
                 const SizedBox(height: 10),
                 Divider(color: Colors.grey.shade300),
@@ -1205,16 +1172,16 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-String timeAgo(DateTime date) {
-  final now = DateTime.now();
-  final localDate = date.toLocal(); // Add this line
-  final diff = now.difference(localDate); // Use localDate instead of date
+  String timeAgo(DateTime date) {
+    final now = DateTime.now();
+    final localDate = date.toLocal(); // Add this line
+    final diff = now.difference(localDate); // Use localDate instead of date
 
-  if (diff.inMinutes < 60) return "${diff.inMinutes} minutes ago";
-  if (diff.inHours < 24) return "${diff.inHours} hours ago";
-  if (diff.inDays < 7) return "${diff.inDays} days ago";
+    if (diff.inMinutes < 60) return "${diff.inMinutes} minutes ago";
+    if (diff.inHours < 24) return "${diff.inHours} hours ago";
+    if (diff.inDays < 7) return "${diff.inDays} days ago";
 
-  final weeks = (diff.inDays / 7).floor();
-  return "$weeks week${weeks > 1 ? 's' : ''} ago";
-}
+    final weeks = (diff.inDays / 7).floor();
+    return "$weeks week${weeks > 1 ? 's' : ''} ago";
+  }
 }

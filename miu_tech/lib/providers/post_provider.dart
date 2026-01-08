@@ -18,6 +18,8 @@ class PostProvider extends ChangeNotifier {
   // Load likes for a specific post
   // ===============================
   Future<void> loadPostLikes(int postId) async {
+    // Already loading or loaded? Skipping for now to avoid complexity,
+    // but in a real app you might check if data is already fresh.
     try {
       final response = await _supabase
           .from('likes')
@@ -41,6 +43,43 @@ class PostProvider extends ChangeNotifier {
       notifyListeners();
     } catch (e) {
       debugPrint('Error loading likes for post $postId: $e');
+    }
+  }
+
+  /// 🟡 NEW BATCH METHOD
+  Future<void> loadLikesForPosts(List<int> postIds) async {
+    if (postIds.isEmpty) return;
+
+    try {
+      // 1. Fetch ALL likes for these posts in one query
+      final response = await _supabase
+          .from('likes')
+          .select('post_id, user_id')
+          .inFilter('post_id', postIds);
+
+      final List data = response as List;
+
+      // 2. Reset counts for these posts
+      for (var id in postIds) {
+        postLikeCounts[id] = 0;
+        likedByMe.remove(id);
+      }
+
+      // 3. Aggregate
+      for (var row in data) {
+        final pid = row['post_id'] as int;
+        final uid = row['user_id'] as int;
+
+        postLikeCounts[pid] = (postLikeCounts[pid] ?? 0) + 1;
+
+        if (uid == currentUserId) {
+          likedByMe.add(pid);
+        }
+      }
+
+      notifyListeners();
+    } catch (e) {
+      debugPrint("Error bulk loading likes: $e");
     }
   }
 

@@ -31,8 +31,10 @@ class UserModel {
       profileImage: map['profile_image'],
       department: map['department'],
       bio: map['bio'],
-      createdAt: DateTime.parse(map['created_at']),
-      location: map['location']
+      createdAt: map['created_at'] != null
+          ? DateTime.parse(map['created_at'])
+          : DateTime.now(),
+      location: map['location'],
     );
   }
 
@@ -47,7 +49,7 @@ class UserModel {
       'department': department,
       'bio': bio,
       'created_at': createdAt.toIso8601String(),
-      'location':location,
+      'location': location,
     };
   }
 

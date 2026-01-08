@@ -11,7 +11,7 @@ class SupabaseService {
   // CREATE USER PROFILE IN public.users
   // ============================================================
   Future<void> createUserProfile({
-    required String userId,  // This is the auth user ID (UUID)
+    required String userId, // This is the auth user ID (UUID)
     required String name,
     required String email,
     required String role,
@@ -63,7 +63,6 @@ class SupabaseService {
 
       print("✅ User profile created for $email");
       print("Response: $response");
-      
     } catch (e) {
       print("❌ Error creating user profile: $e");
       rethrow;
