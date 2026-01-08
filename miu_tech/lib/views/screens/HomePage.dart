@@ -19,12 +19,13 @@ import 'package:confetti/confetti.dart';
 import '../../providers/StoryProvider.dart';
 import '../../providers/SavedPostProvider.dart';
 import '../../models/announcement_model.dart';
+import 'package:add_2_calendar/add_2_calendar.dart';
 import '../widgets/announcement_card.dart';
 import '../../controllers/announcement_controller.dart';
 import '../widgets/competition_request_card.dart';
-
+import '../../models/FreelanceProjectModel.dart';
+import '../widgets/freelance_project_card.dart';
 final supabase = Supabase.instance.client;
-
 class FeedItem {
   final PostModel? post;
   final AnnouncementModel? announcement;
@@ -73,6 +74,9 @@ class _HomePageState extends State<HomePage> {
 
   // For You toggle (false = Discover, true = For You)
   bool _showForYou = false;
+
+// ADD THIS LINE HERE:
+  bool _showFreelancingHub = false;
 
   // Cached posts future
   late Future<List<FeedItem>> _feedFuture;
@@ -170,6 +174,17 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
+  Future<bool> _isFollowing(int targetUserId) async {
+    final res = await supabase
+        .from('friendships')
+        .select()
+        .eq('user_id', widget.currentUserId)
+        .eq('friend_id', targetUserId)
+        .eq('status', 'accepted')
+        .maybeSingle();
+
+    return res != null;
+  }
 
   Future<void> _toggleFollow(int targetUserId, String userName) async {
     final existing = await supabase
@@ -252,13 +267,91 @@ class _HomePageState extends State<HomePage> {
       return false;
     }
   }
-
+List<FreelanceProjectModel> _getHardcodedProjects() {
+  return [
+    FreelanceProjectModel(
+      projectId: 1,
+      title: "Mobile App UI/UX Designer Needed",
+      companyName: "TechStart Inc.",
+      companyLogo: "https://via.placeholder.com/100",
+      postedAt: DateTime.now().subtract(const Duration(hours: 2)),
+      description: "We're looking for a talented UI/UX designer to redesign our mobile app. Must have experience with modern design principles and mobile-first approach.",
+      skillsNeeded: ["Figma", "UI/UX", "Mobile Design", "Prototyping"],
+      duration: "2-3 months",
+      deadline: DateTime.now().add(const Duration(days: 15)),
+      budgetRange: "\$3000-\$5000",
+      keyResponsibilities: "• Create wireframes and prototypes\n• Design user interface\n• Conduct user research\n• Collaborate with development team",
+    ),
+    FreelanceProjectModel(
+      projectId: 2,
+      title: "Flutter Developer for E-commerce App",
+      companyName: "ShopHub",
+      companyLogo: "https://via.placeholder.com/100",
+      postedAt: DateTime.now().subtract(const Duration(days: 1)),
+      description: "Seeking experienced Flutter developer to build a cross-platform e-commerce application with payment integration.",
+      skillsNeeded: ["Flutter", "Dart", "Firebase", "REST API"],
+      duration: "3-4 months",
+      deadline: DateTime.now().add(const Duration(days: 20)),
+      budgetRange: "\$5000-\$8000",
+      keyResponsibilities: "• Develop mobile app using Flutter\n• Integrate payment gateways\n• Implement real-time features\n• Write clean, maintainable code",
+    ),
+    FreelanceProjectModel(
+      projectId: 3,
+      title: "Social Media Content Creator",
+      companyName: "Digital Marketing Co.",
+      companyLogo: "https://via.placeholder.com/100",
+      postedAt: DateTime.now().subtract(const Duration(days: 3)),
+      description: "Need creative content creator for managing social media accounts and creating engaging posts.",
+      skillsNeeded: ["Content Writing", "Social Media", "Canva", "Photography"],
+      duration: "1 month",
+      deadline: DateTime.now().add(const Duration(days: 10)),
+      budgetRange: "\$1000-\$2000",
+      keyResponsibilities: "• Create daily social media posts\n• Design graphics\n• Engage with audience\n• Track analytics",
+    ),
+    FreelanceProjectModel(
+      projectId: 4,
+      title: "Full Stack Web Developer",
+      companyName: "WebSolutions Ltd.",
+      companyLogo: "https://via.placeholder.com/100",
+      postedAt: DateTime.now().subtract(const Duration(hours: 12)),
+      description: "Looking for full stack developer to build a modern web application with React and Node.js.",
+      skillsNeeded: ["React", "Node.js", "MongoDB", "TypeScript"],
+      duration: "4-6 months",
+      deadline: DateTime.now().add(const Duration(days: 25)),
+      budgetRange: "\$8000-\$12000",
+      keyResponsibilities: "• Build responsive web application\n• Design database schema\n• Implement authentication\n• Deploy and maintain application",
+    ),
+  ];
+}
+Widget _buildStatCard(String number, String label) {
+  return Column(
+    children: [
+      Text(
+        number,
+        style: const TextStyle(
+          color: Colors.white,
+          fontSize: 18,
+          fontWeight: FontWeight.bold,
+        ),
+      ),
+      const SizedBox(height: 4),
+      Text(
+        label,
+        style: TextStyle(
+          color: Colors.white.withOpacity(0.9),
+          fontSize: 11,
+        ),
+      ),
+    ],
+  );
+}
   // ========================= BUILD =========================
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xffF5F7FA),
-
+    backgroundColor: _showFreelancingHub 
+        ? const Color(0xFFFFF5F5)  // Very light red/pink tint
+        : const Color(0xffF5F7FA),  // Original light grey
       endDrawer: UserDrawerContent(userId: widget.currentUserId),
 
       appBar: PreferredSize(
@@ -276,46 +369,72 @@ class _HomePageState extends State<HomePage> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 // ================= DISCOVER HEADER =================
-                Padding(
-                  padding: const EdgeInsets.only(left: 4, bottom: 10),
-                  child: Row(
-                    children: [
-                      GestureDetector(
-                        onTap: () {
-                          setState(() {
-                            _showForYou = false;
-                            _feedFuture = _fetchFeed();
-                          });
-                        },
-                        child: Text(
-                          "Discover ",
-                          style: TextStyle(
-                            fontSize: 22,
-                            fontWeight: FontWeight.bold,
-                            color: _showForYou ? Colors.grey : Colors.black,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      GestureDetector(
-                        onTap: () {
-                          setState(() {
-                            _showForYou = true;
-                            _feedFuture = _fetchFeed();
-                          });
-                        },
-                        child: Text(
-                          "For You",
-                          style: TextStyle(
-                            fontSize: 20,
-                            fontWeight: FontWeight.w400,
-                            color: _showForYou ? Colors.black : Colors.grey,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
+Padding(
+  padding: const EdgeInsets.only(left: 4, bottom: 10),
+  child: Row(
+    children: [
+      GestureDetector(
+        onTap: () {
+          setState(() {
+            _showForYou = false;
+            _showFreelancingHub = false;
+            _feedFuture = _fetchFeed();
+          });
+        },
+        child: Text(
+          "Discover ",
+          style: TextStyle(
+            fontSize: 22,
+            fontWeight: FontWeight.bold,
+            color: (!_showForYou && !_showFreelancingHub) ? Colors.black : Colors.grey,
+          ),
+        ),
+      ),
+      const SizedBox(width: 10),
+      GestureDetector(
+        onTap: () {
+          setState(() {
+            _showForYou = true;
+            _showFreelancingHub = false;
+            _feedFuture = _fetchFeed();
+          });
+        },
+        child: Text(
+          "For You",
+          style: TextStyle(
+            fontSize: 20,
+            fontWeight: FontWeight.w400,
+            color: _showForYou ? Colors.black : Colors.grey,
+          ),
+        ),
+      ),
+      const SizedBox(width: 10),
+      GestureDetector(
+        onTap: () {
+          setState(() {
+            _showFreelancingHub = true;
+            _showForYou = false;
+          });
+        },
+        child: ShaderMask(
+          shaderCallback: (bounds) => LinearGradient(
+            colors: _showFreelancingHub
+                ? [Colors.red.shade700, Colors.red.shade400]
+                : [Colors.red.shade200, Colors.red.shade100],
+          ).createShader(bounds),
+          child: Text(
+            "Freelancing Hub",
+            style: TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+              color: Colors.white,
+            ),
+          ),
+        ),
+      ),
+    ],
+  ),
+),
 
                 // ================= CREATE POST BAR =================
                 FutureBuilder<Map<String, dynamic>?>(
@@ -340,186 +459,284 @@ class _HomePageState extends State<HomePage> {
                 ),
 
                 const SizedBox(height: 8),
+   
+const SizedBox(height: 20),
 
-                // ================= CATEGORIES =================
-                SizedBox(
-                  height: 40,
-                  child: ListView(
-                    scrollDirection: Axis.horizontal,
-                    clipBehavior: Clip.none,
-                    children: [
-                      CategoryChip(
-                        text: "ALL",
-                        selectedCategory: _selectedCategory,
-                        onTap: () {
-                          setState(() {
-                            _selectedCategory = "ALL";
-                            _feedFuture = _fetchFeed();
-                          });
-                        },
-                      ),
-                      CategoryChip(
-                        text: "Internships",
-                        icon: Icons.school,
-                        selectedCategory: _selectedCategory,
-                        onTap: () {
-                          setState(() {
-                            _selectedCategory = "Internships";
-                            _feedFuture = _fetchFeed();
-                          });
-                        },
-                      ),
-                      CategoryChip(
-                        text: "Competitions",
-                        icon: Icons.emoji_events,
-                        selectedCategory: _selectedCategory,
-                        onTap: () {
-                          setState(() {
-                            _selectedCategory = "Competitions";
-                            _feedFuture = _fetchFeed();
-                          });
-                        },
-                      ),
-                      CategoryChip(
-                        text: "Courses",
-                        icon: Icons.menu_book,
-                        selectedCategory: _selectedCategory,
-                        onTap: () {
-                          setState(() {
-                            _selectedCategory = "Courses";
-                            _feedFuture = _fetchFeed();
-                          });
-                        },
-                      ),
-                      CategoryChip(
-                        text: "News",
-                        icon: Icons.article,
-                        selectedCategory: _selectedCategory,
-                        onTap: () {
-                          setState(() {
-                            _selectedCategory = "News";
-                            _feedFuture = _fetchFeed();
-                          });
-                        },
-                      ),
-                      CategoryChip(
-                        text: "Events",
-                        icon: Icons.event,
-                        selectedCategory: _selectedCategory,
-                        onTap: () {
-                          setState(() {
-                            _selectedCategory = "Events";
-                            _feedFuture = _fetchFeed();
-                          });
-                        },
-                      ),
-
-                      CategoryChip(
-                        text: "Jobs",
-                        icon: Icons.work,
-                        selectedCategory: _selectedCategory,
-                        onTap: () {
-                          setState(() {
-                            _selectedCategory = "Jobs";
-                            _feedFuture = _fetchFeed();
-                          });
-                        },
-                      ),
-                      CategoryChip(
-                        text: "Announcements",
-                        icon: Icons.campaign,
-                        selectedCategory: _selectedCategory,
-                        onTap: () {
-                          setState(() {
-                            _selectedCategory = "Announcements";
-                            _feedFuture = _fetchFeed();
-                          });
-                        },
-                      ),
-                    ],
+// ================= CONDITIONAL CONTENT =================
+if (_showFreelancingHub) ...[
+  // GRADIENT BANNER FOR FREELANCING HUB
+  Container(
+    width: double.infinity,
+    padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
+    decoration: BoxDecoration(
+      gradient: LinearGradient(
+        colors: [
+          Colors.red.shade400,
+          Colors.red.shade600,
+          Colors.red.shade800,
+        ],
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+      ),
+      borderRadius: BorderRadius.circular(20),
+      boxShadow: [
+        BoxShadow(
+          color: Colors.red.withOpacity(0.3),
+          blurRadius: 15,
+          offset: const Offset(0, 5),
+        ),
+      ],
+    ),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.2),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: const Icon(
+                Icons.work_outline,
+                color: Colors.white,
+                size: 28,
+              ),
+            ),
+            const SizedBox(width: 12),
+            const Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    "Find Your Next Project",
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
-                ),
+                  SizedBox(height: 4),
+                  Text(
+                    "Browse opportunities from top companies",
+                    style: TextStyle(
+                      color: Colors.white70,
+                      fontSize: 13,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 16),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceAround,
+          children: [
+            _buildStatCard("24", "Active Projects"),
+            Container(
+              width: 1,
+              height: 30,
+              color: Colors.white.withOpacity(0.3),
+            ),
+            _buildStatCard("150+", "Companies"),
+            Container(
+              width: 1,
+              height: 30,
+              color: Colors.white.withOpacity(0.3),
+            ),
+            _buildStatCard("500+", "Freelancers"),
+          ],
+        ),
+      ],
+    ),
+  ),
+  
+  const SizedBox(height: 20),
+  
+  // FREELANCING HUB PROJECTS
+  ..._getHardcodedProjects().map((project) {
+    return FreelanceProjectCard(project: project);
+  }).toList(),
+] else ...[
+  // CATEGORIES (Only show in Discover/For You)
+  SizedBox(
+    height: 40,
+    child: ListView(
+      scrollDirection: Axis.horizontal,
+      clipBehavior: Clip.none,
+      children: [
+        CategoryChip(
+          text: "ALL",
+          selectedCategory: _selectedCategory,
+          onTap: () {
+            setState(() {
+              _selectedCategory = "ALL";
+              _feedFuture = _fetchFeed();
+            });
+          },
+        ),
+        CategoryChip(
+          text: "Internships",
+          icon: Icons.school,
+          selectedCategory: _selectedCategory,
+          onTap: () {
+            setState(() {
+              _selectedCategory = "Internships";
+              _feedFuture = _fetchFeed();
+            });
+          },
+        ),
+        CategoryChip(
+          text: "Competitions",
+          icon: Icons.emoji_events,
+          selectedCategory: _selectedCategory,
+          onTap: () {
+            setState(() {
+              _selectedCategory = "Competitions";
+              _feedFuture = _fetchFeed();
+            });
+          },
+        ),
+        CategoryChip(
+          text: "Courses",
+          icon: Icons.menu_book,
+          selectedCategory: _selectedCategory,
+          onTap: () {
+            setState(() {
+              _selectedCategory = "Courses";
+              _feedFuture = _fetchFeed();
+            });
+          },
+        ),
+        CategoryChip(
+          text: "News",
+          icon: Icons.article,
+          selectedCategory: _selectedCategory,
+          onTap: () {
+            setState(() {
+              _selectedCategory = "News";
+              _feedFuture = _fetchFeed();
+            });
+          },
+        ),
+        CategoryChip(
+          text: "Events",
+          icon: Icons.event,
+          selectedCategory: _selectedCategory,
+          onTap: () {
+            setState(() {
+              _selectedCategory = "Events";
+              _feedFuture = _fetchFeed();
+            });
+          },
+        ),
+        CategoryChip(
+          text: "Jobs",
+          icon: Icons.work,
+          selectedCategory: _selectedCategory,
+          onTap: () {
+            setState(() {
+              _selectedCategory = "Jobs";
+              _feedFuture = _fetchFeed();
+            });
+          },
+        ),
+        CategoryChip(
+          text: "Announcements",
+          icon: Icons.campaign,
+          selectedCategory: _selectedCategory,
+          onTap: () {
+            setState(() {
+              _selectedCategory = "Announcements";
+              _feedFuture = _fetchFeed();
+            });
+          },
+        ),
+      ],
+    ),
+  ),
+  
+  const SizedBox(height: 20),
+  
+  // EXISTING FEED (Stories + Posts)
+  FutureBuilder<Map<String, dynamic>?>(
+    future: UserController.fetchUserData(widget.currentUserId),
+    builder: (context, userSnapshot) {
+      if (!userSnapshot.hasData) {
+        return const SizedBox(
+          height: 120,
+          child: Center(child: CircularProgressIndicator()),
+        );
+      }
 
-                const SizedBox(height: 20),
+      final profileImage = userSnapshot.data?['profile_image'];
+      return Consumer<StoryProvider>(
+        builder: (context, storyProvider, _) {
+          return StorySection(
+            myAvatarUrl: profileImage,
+            stories: storyProvider.stories,
+            hasMyStory: storyProvider.stories.any(
+              (s) => s['user_id'] == widget.currentUserId,
+            ),
+            currentUserId: widget.currentUserId,
+          );
+        },
+      );
+    },
+  ),
 
-                // ================= STORIES =================
-                FutureBuilder<Map<String, dynamic>?>(
-                  future: UserController.fetchUserData(widget.currentUserId),
-                  builder: (context, userSnapshot) {
-                    if (!userSnapshot.hasData) {
-                      return const SizedBox(
-                        height: 120,
-                        child: Center(child: CircularProgressIndicator()),
-                      );
-                    }
+  const SizedBox(height: 10),
+  Divider(color: Colors.grey.shade300),
 
-                    final profileImage = userSnapshot.data?['profile_image'];
-                    return Consumer<StoryProvider>(
-                      builder: (context, storyProvider, _) {
-                        return StorySection(
-                          myAvatarUrl: profileImage,
-                          stories: storyProvider.stories,
-                          hasMyStory: storyProvider.stories.any(
-                            (s) => s['user_id'] == widget.currentUserId,
-                          ),
-                          currentUserId: widget.currentUserId,
-                        );
-                      },
-                    );
-                  },
-                ),
+  // POSTS
+  FutureBuilder<List<FeedItem>>(
+    future: _feedFuture,
+    builder: (context, snapshot) {
+      if (snapshot.connectionState == ConnectionState.waiting) {
+        return Padding(
+          padding: const EdgeInsets.only(top: 40),
+          child: Center(child: CircularProgressIndicator()),
+        );
+      }
 
-                const SizedBox(height: 10),
-                Divider(color: Colors.grey.shade300),
+      if (!snapshot.hasData || snapshot.data!.isEmpty) {
+        return const Padding(
+          padding: EdgeInsets.only(top: 20),
+          child: Center(child: Text("No content available")),
+        );
+      }
 
-                // ================= POSTS =================
-                FutureBuilder<List<FeedItem>>(
-                  future: _feedFuture,
-                  builder: (context, snapshot) {
-                    if (snapshot.connectionState == ConnectionState.waiting) {
-                      return Padding(
-                        padding: const EdgeInsets.only(top: 40),
-                        child: Center(child: CircularProgressIndicator()),
-                      );
-                    }
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _loadLikesAndRepostsForPosts(snapshot.data!);
+      });
 
-                    if (!snapshot.hasData || snapshot.data!.isEmpty) {
-                      return const Padding(
-                        padding: EdgeInsets.only(top: 20),
-                        child: Center(child: Text("No content available")),
-                      );
-                    }
+      return Column(
+        children: snapshot.data!.map((item) {
+          switch (item.type) {
+            case FeedType.post:
+              return _feedCard(item.post!);
 
-                    WidgetsBinding.instance.addPostFrameCallback((_) {
-                      _loadLikesAndRepostsForPosts(snapshot.data!);
-                    });
+            case FeedType.announcement:
+              return AnnouncementCard(
+                announcement: item.announcement!,
+                currentUserId: widget.currentUserId,
+              );
 
-                    return Column(
-                      children: snapshot.data!.map((item) {
-                        switch (item.type) {
-                          case FeedType.post:
-                            return _feedCard(item.post!);
-
-                          case FeedType.announcement:
-                            return AnnouncementCard(
-                              announcement: item.announcement!,
-                              currentUserId: widget.currentUserId,
-                            );
-
-                          case FeedType.request:
-                            return CompetitionRequestCard(
-                              request: item.request!,
-                              currentUserId: widget.currentUserId,
-                            );
-                        }
-                      }).toList(),
-                    );
-                  },
-                ),
-              ],
+            case FeedType.request:
+              return CompetitionRequestCard(
+                request: item.request!,
+                currentUserId: widget.currentUserId,
+              );
+          }
+        }).toList(),
+      );
+    },
+  ),
+],              ],
             ),
           ),
-
           // ================= CONFETTI =================
           Align(
             alignment: Alignment.topCenter,

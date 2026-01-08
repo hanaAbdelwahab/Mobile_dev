@@ -13,7 +13,6 @@ import 'package:provider/provider.dart';
 // ================= App Screens =================
 import 'views/screens/Splash_Screen.dart';
 import 'views/screens/HomePage.dart';
-import 'views/screens/AddPostScreen.dart';
 import 'views/screens/login_page.dart';
 import 'views/screens/signup_page.dart';
 import 'views/screens/forgot_password_page.dart';
