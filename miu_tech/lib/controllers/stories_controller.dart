@@ -173,7 +173,7 @@ class StoriesController extends StateNotifier<AsyncValue<StoriesState>> {
           users (user_id, name, profile_image),
           story_views(viewer_id)
         ''')
-        .filter('user_id', 'in', friendIds.toList())
+        .inFilter('user_id', friendIds.toList())
         .gt('created_at', twentyFourHoursAgoIso)
         .order('created_at');
 

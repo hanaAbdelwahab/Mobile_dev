@@ -30,7 +30,7 @@ class _ViewersSheetState extends State<ViewersSheet> {
       final data = await Supabase.instance.client
           .from('users')
           .select()
-          .filter('user_id', 'in', widget.viewerIds);
+          .inFilter('user_id', widget.viewerIds);
 
       if (mounted) {
         setState(() {
@@ -102,11 +102,21 @@ class _ViewersSheetState extends State<ViewersSheet> {
                         itemCount: _viewers!.length,
                         itemBuilder: (_, i) {
                           final p = _viewers![i];
+                          final img = p['profile_image'];
+                          final hasImg =
+                              img != null && img.toString().isNotEmpty;
                           return ListTile(
                             leading: CircleAvatar(
-                              backgroundImage: NetworkImage(
-                                p['profile_image'] ?? '',
-                              ),
+                              backgroundColor: Colors.grey[800],
+                              backgroundImage: hasImg
+                                  ? NetworkImage(img)
+                                  : null,
+                              child: !hasImg
+                                  ? const Icon(
+                                      Icons.person,
+                                      color: Colors.white,
+                                    )
+                                  : null,
                             ),
                             title: Text(
                               p['name'] ?? 'Unknown',
