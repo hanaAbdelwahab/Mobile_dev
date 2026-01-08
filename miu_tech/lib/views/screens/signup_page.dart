@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:image_picker/image_picker.dart';
 
-import '../../services/supabase_service.dart';
 import 'email_verification_page.dart';
 import 'login_page.dart';
 
@@ -15,7 +14,6 @@ class SignUpPage extends StatefulWidget {
 }
 
 class _SignUpPageState extends State<SignUpPage> {
-  final _service = SupabaseService();
   final _formKey = GlobalKey<FormState>();
 
   final TextEditingController _name = TextEditingController();

@@ -19,7 +19,6 @@ import 'package:confetti/confetti.dart';
 import '../../providers/StoryProvider.dart';
 import '../../providers/SavedPostProvider.dart';
 import '../../models/announcement_model.dart';
-import 'package:add_2_calendar/add_2_calendar.dart';
 import '../widgets/announcement_card.dart';
 import '../../controllers/announcement_controller.dart';
 import '../widgets/competition_request_card.dart';

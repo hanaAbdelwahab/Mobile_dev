@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import '../../utils/image_picker_helper.dart';
-import '../../services/profile_image_service.dart';
+
 
 
 final supabase = Supabase.instance.client;
