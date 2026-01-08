@@ -162,7 +162,11 @@ class StoriesController extends StateNotifier<AsyncValue<StoriesState>> {
     // 2. Friend IDs
     final friendIds = <int>{currentUserId};
     for (final f in friendships) {
-      friendIds.add(f.userId == currentUserId ? f.friendId : f.userId);
+      if (f.userId == currentUserId) {
+        friendIds.add(f.friendId);
+      } else if (f.friendId == currentUserId) {
+        friendIds.add(f.userId);
+      }
     }
 
     // 3. Fetch stories

@@ -156,50 +156,28 @@ class _CreateStoryScreenState extends ConsumerState<CreateStoryScreen> {
   }
 
   Future<void> _cropImage(String sourcePath) async {
-    // Set status bar to black to ensure crop controls are visible/clickable
-    SystemChrome.setSystemUIOverlayStyle(
-      const SystemUiOverlayStyle(
-        statusBarColor: Colors.black,
-        statusBarIconBrightness: Brightness.light,
-      ),
-    );
-
-    CroppedFile? croppedFile;
-
-    try {
-      croppedFile = await ImageCropper().cropImage(
-        sourcePath: sourcePath,
-        compressQuality: 80,
-        aspectRatio: const CropAspectRatio(ratioX: 9, ratioY: 16),
-        uiSettings: [
-          AndroidUiSettings(
-            toolbarTitle: 'Edit Story',
-            toolbarColor: Colors.black,
-            toolbarWidgetColor: Colors.white,
-            statusBarColor: Colors.black,
-            initAspectRatio: CropAspectRatioPreset.ratio16x9,
-            lockAspectRatio: true,
-            backgroundColor: Colors.black,
-            hideBottomControls: true,
-          ),
-          IOSUiSettings(
-            title: 'Edit Story',
-            aspectRatioLockEnabled: true,
-            resetAspectRatioEnabled: false,
-          ),
-        ],
-      );
-    } finally {
-      // Restore transparent status bar
-      SystemChrome.setSystemUIOverlayStyle(
-        const SystemUiOverlayStyle(
-          statusBarColor: Colors.transparent,
-          statusBarIconBrightness: Brightness.dark,
-          systemNavigationBarColor: Colors.white,
-          systemNavigationBarIconBrightness: Brightness.dark,
+    final croppedFile = await ImageCropper().cropImage(
+      sourcePath: sourcePath,
+      compressQuality: 80,
+      aspectRatio: const CropAspectRatio(ratioX: 9, ratioY: 16),
+      uiSettings: [
+        AndroidUiSettings(
+          toolbarTitle: 'Edit Story',
+          toolbarColor: Colors.black,
+          toolbarWidgetColor: Colors.white,
+          statusBarColor: Colors.black,
+          initAspectRatio: CropAspectRatioPreset.ratio16x9,
+          lockAspectRatio: true,
+          backgroundColor: Colors.black,
+          hideBottomControls: true,
         ),
-      );
-    }
+        IOSUiSettings(
+          title: 'Edit Story',
+          aspectRatioLockEnabled: true,
+          resetAspectRatioEnabled: false,
+        ),
+      ],
+    );
 
     if (!mounted) return;
 

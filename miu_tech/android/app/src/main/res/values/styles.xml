@@ -15,4 +15,14 @@
     <style name="NormalTheme" parent="@android:style/Theme.Light.NoTitleBar">
         <item name="android:windowBackground">?android:colorBackground</item>
     </style>
+
+    <style name="Theme.UCrop" parent="Theme.AppCompat.Light.NoActionBar">
+        <item name="android:windowNoTitle">true</item>
+        <item name="android:windowActionBar">false</item>
+        <item name="android:fitsSystemWindows">true</item> <!-- This prevents content from going under status bar -->
+        <item name="android:windowDrawsSystemBarBackgrounds">true</item>
+        <item name="android:statusBarColor">@android:color/black</item>
+        <!-- Best practice: Prevent layout from extending into the camera notch area -->
+        <item name="android:windowLayoutInDisplayCutoutMode">never</item>
+    </style>
 </resources>
