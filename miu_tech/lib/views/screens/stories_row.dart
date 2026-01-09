@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'dart:ui';
 import '../../controllers/stories_controller.dart';
 import '../../models/user_stories.dart';
+import '../../models/story.dart';
 import '../screens/story_viewer_screen.dart';
 import '../screens/create_story_screen.dart';
 
@@ -32,7 +33,6 @@ class StoriesRow extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final storiesAsync = ref.watch(storiesProvider);
-    final currentUserId = ref.read(storiesProvider.notifier).currentUserId;
 
     return storiesAsync.when(
       loading: () => const SizedBox(
@@ -42,6 +42,7 @@ class StoriesRow extends ConsumerWidget {
       error: (e, _) =>
           SizedBox(height: 120, child: Center(child: Text('Error: $e'))),
       data: (state) {
+        final currentUserId = ref.read(storiesProvider.notifier).currentUserId;
         final myStory = state.myStory;
         final friends = state.friendsStories;
 
@@ -76,9 +77,14 @@ class StoriesRow extends ConsumerWidget {
               final friendStory = friends[index - 1];
               final hasUnseen = friendStory.hasUnseen(currentUserId);
               // Safe fallback for potentially empty lists if data is malformed
-              final previewImageUrl = friendStory.stories.isNotEmpty
-                  ? friendStory.stories.first.mediaUrl
-                  : '';
+              String previewImageUrl = '';
+              bool isVideo = false;
+
+              if (friendStory.stories.isNotEmpty) {
+                final firstStory = friendStory.stories.first;
+                previewImageUrl = firstStory.mediaUrl;
+                isVideo = firstStory.mediaType == MediaType.video;
+              }
 
               return Padding(
                 padding: const EdgeInsets.only(right: 12),
@@ -87,6 +93,7 @@ class StoriesRow extends ConsumerWidget {
                   child: _StoryCard(
                     name: friendStory.user.name,
                     imageUrl: previewImageUrl,
+                    isVideo: isVideo,
                     avatarUrl: friendStory.user.profileImage,
                     allSeen: !hasUnseen,
                   ),
@@ -181,12 +188,14 @@ class _StoryAdd extends StatelessWidget {
 class _StoryCard extends StatelessWidget {
   final String name;
   final String imageUrl;
+  final bool isVideo;
   final String? avatarUrl;
   final bool allSeen;
 
   const _StoryCard({
     required this.name,
     required this.imageUrl,
+    required this.isVideo,
     required this.avatarUrl,
     required this.allSeen,
   });
@@ -215,17 +224,7 @@ class _StoryCard extends StatelessWidget {
                 padding: const EdgeInsets.all(3),
                 child: ClipRRect(
                   borderRadius: BorderRadius.circular(15),
-                  child: imageUrl.isNotEmpty
-                      ? ImageFiltered(
-                          imageFilter: ImageFilter.blur(sigmaX: 3, sigmaY: 3),
-                          child: Image.network(
-                            imageUrl,
-                            fit: BoxFit.cover,
-                            errorBuilder: (context, error, stackTrace) =>
-                                Container(color: Colors.grey.shade300),
-                          ),
-                        )
-                      : Container(color: Colors.grey.shade300),
+                  child: _buildPreview(),
                 ),
               ),
 
@@ -262,6 +261,30 @@ class _StoryCard extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildPreview() {
+    if (imageUrl.isEmpty) {
+      return Container(color: Colors.grey.shade300);
+    }
+
+    if (isVideo) {
+      // For videos, show a placeholder or just a solid color with an icon
+      // Since it's blurred anyway, we don't need the actual video frame
+      return Container(color: Colors.grey.shade300, child: const Center());
+    }
+
+    return ImageFiltered(
+      imageFilter: ImageFilter.blur(sigmaX: 3, sigmaY: 3),
+      child: Image.network(
+        imageUrl,
+        fit: BoxFit.cover,
+        // Cache detailed resize
+        cacheWidth: 200, // Small width since it's a thumbnail
+        errorBuilder: (context, error, stackTrace) =>
+            Container(color: Colors.grey.shade300),
       ),
     );
   }

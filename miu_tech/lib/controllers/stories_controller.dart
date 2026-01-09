@@ -32,8 +32,9 @@ class StoriesController extends StateNotifier<AsyncValue<StoriesState>> {
   int get currentUserId {
     if (_resolvedUserId != null) return _resolvedUserId!;
     final user = _supabase.auth.currentUser;
-    // Try metadata, fallback to 6 (guest/test)
-    return user?.userMetadata?['user_id'] ?? 6;
+    final userId = user?.userMetadata?['user_id'];
+    if (userId != null) return userId as int;
+    throw Exception("User not authenticated or ID not found");
   }
 
   /// Ensure we have the correct Integer UserID from the database
@@ -42,7 +43,7 @@ class StoriesController extends StateNotifier<AsyncValue<StoriesState>> {
     if (_resolvedUserId != null) return _resolvedUserId!;
 
     final user = _supabase.auth.currentUser;
-    if (user == null) return 6;
+    if (user == null) throw Exception("No user logged in");
 
     // 1. Try Metadata
     if (user.userMetadata?['user_id'] != null) {
@@ -71,7 +72,7 @@ class StoriesController extends StateNotifier<AsyncValue<StoriesState>> {
     }
 
     // 3. Fallback
-    return 6;
+    throw Exception("Could not resolve user ID");
   }
 
   Future<void> loadStories() async {
@@ -92,6 +93,16 @@ class StoriesController extends StateNotifier<AsyncValue<StoriesState>> {
   }
 
   Future<void> markStoryAsSeen(int storyId) async {
+    // Check if it's my own story. We don't want to count self-views.
+    bool isMine = false;
+    state.whenData((data) {
+      if (data.myStory?.stories.any((s) => s.id == storyId) ?? false) {
+        isMine = true;
+      }
+    });
+
+    if (isMine) return;
+
     // 1. Optimistically update state
     state.whenData((currentState) {
       final myStory = currentState.myStory;

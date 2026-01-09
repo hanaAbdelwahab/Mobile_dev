@@ -187,13 +187,19 @@ class _StoryPlayerState extends ConsumerState<StoryPlayer>
     _animController.stop();
     _videoController?.pause();
 
+    // Filter out current user from viewers list so they don't see themselves
+    final currentUserId = ref.read(storiesProvider.notifier).currentUserId;
+    final viewerIds = _currentStory.seenBy
+        .where((id) => id != currentUserId)
+        .toList();
+
     await showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       barrierColor: Colors.black54,
       enableDrag: true,
-      builder: (_) => ViewersSheet(viewerIds: _currentStory.seenBy.toList()),
+      builder: (_) => ViewersSheet(viewerIds: viewerIds),
     );
 
     _animController.forward();
@@ -357,7 +363,10 @@ class _StoryPlayerState extends ConsumerState<StoryPlayer>
 
             // 4. Viewers Button
             if (isMine)
-              ViewersButton(count: story.seenBy.length, onTap: _showViewers),
+              ViewersButton(
+                count: story.seenBy.where((id) => id != currentUserId).length,
+                onTap: _showViewers,
+              ),
 
             // 5. Delete Button
             if (isMine)
