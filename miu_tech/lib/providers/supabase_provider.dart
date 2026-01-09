@@ -130,7 +130,7 @@ class SearchRepository {
     // Search posts
     // We convert the UI string (e.g. "Internships") to a database ID (e.g. 11)
     if (filterCategory == 'All' || _categoryNameToId(filterCategory) != 0) {
-      // 1. Search by Title
+      // 1. Search by Title or Content
       var postQuery = client.from('posts').select();
       if (filterCategory != 'All') {
         int categoryId = _categoryNameToId(filterCategory);
@@ -138,7 +138,9 @@ class SearchRepository {
           postQuery = postQuery.eq('category_id', categoryId);
         }
       }
-      dynamic postQueryBuilder = postQuery.ilike('title', '%$query%');
+      dynamic postQueryBuilder = postQuery.or(
+        'title.ilike.%$query%,content.ilike.%$query%',
+      );
       if (sort == 'Date') {
         postQueryBuilder = postQueryBuilder.order(
           'created_at',
