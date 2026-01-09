@@ -36,6 +36,9 @@ class _StoryPlayerState extends ConsumerState<StoryPlayer>
   VideoPlayerController? _nextVideoController;
   int? _preloadedIndex;
 
+  // New map to store updated viewer counts for each story index
+  final Map<int, int> _updatedViewerCounts = {};
+
   @override
   void initState() {
     super.initState();
@@ -187,11 +190,7 @@ class _StoryPlayerState extends ConsumerState<StoryPlayer>
     _animController.stop();
     _videoController?.pause();
 
-    // Filter out current user from viewers list so they don't see themselves
     final currentUserId = ref.read(storiesProvider.notifier).currentUserId;
-    final viewerIds = _currentStory.seenBy
-        .where((id) => id != currentUserId)
-        .toList();
 
     await showModalBottomSheet(
       context: context,
@@ -199,7 +198,17 @@ class _StoryPlayerState extends ConsumerState<StoryPlayer>
       backgroundColor: Colors.transparent,
       barrierColor: Colors.black54,
       enableDrag: true,
-      builder: (_) => ViewersSheet(viewerIds: viewerIds),
+      builder: (_) => ViewersSheet(
+        storyId: _currentStory.id,
+        currentUserId: currentUserId,
+        onViewersCountUpdated: (count) {
+          if (mounted) {
+            setState(() {
+              _updatedViewerCounts[_currentIndex] = count;
+            });
+          }
+        },
+      ),
     );
 
     _animController.forward();
@@ -364,7 +373,9 @@ class _StoryPlayerState extends ConsumerState<StoryPlayer>
             // 4. Viewers Button
             if (isMine)
               ViewersButton(
-                count: story.seenBy.where((id) => id != currentUserId).length,
+                count:
+                    _updatedViewerCounts[_currentIndex] ??
+                    story.seenBy.where((id) => id != currentUserId).length,
                 onTap: _showViewers,
               ),
 

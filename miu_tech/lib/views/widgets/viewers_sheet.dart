@@ -2,9 +2,16 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class ViewersSheet extends StatefulWidget {
-  final List<int> viewerIds;
+  final int storyId;
+  final int currentUserId;
+  final ValueChanged<int>? onViewersCountUpdated;
 
-  const ViewersSheet({super.key, required this.viewerIds});
+  const ViewersSheet({
+    super.key,
+    required this.storyId,
+    required this.currentUserId,
+    this.onViewersCountUpdated,
+  });
 
   @override
   State<ViewersSheet> createState() => _ViewersSheetState();
@@ -21,20 +28,44 @@ class _ViewersSheetState extends State<ViewersSheet> {
   }
 
   Future<void> _fetchViewers() async {
-    if (widget.viewerIds.isEmpty) {
-      if (mounted) setState(() => _isLoading = false);
-      return;
-    }
-
     try {
-      final data = await Supabase.instance.client
+      // 1. Fetch latest viewer IDs from DB for this story
+      final viewsData = await Supabase.instance.client
+          .from('story_views')
+          .select('viewer_id')
+          .eq('story_id', widget.storyId);
+
+      final List<int> viewerIds = List<int>.from(
+        (viewsData as List).map((e) => e['viewer_id']),
+      );
+
+      // Filter out self
+      viewerIds.removeWhere((id) => id == widget.currentUserId);
+
+      // Notify parent about updated count
+      if (widget.onViewersCountUpdated != null) {
+        widget.onViewersCountUpdated!(viewerIds.length);
+      }
+
+      if (viewerIds.isEmpty) {
+        if (mounted) {
+          setState(() {
+            _viewers = [];
+            _isLoading = false;
+          });
+        }
+        return;
+      }
+
+      // 2. Fetch user details
+      final usersData = await Supabase.instance.client
           .from('users')
           .select()
-          .inFilter('user_id', widget.viewerIds);
+          .inFilter('user_id', viewerIds);
 
       if (mounted) {
         setState(() {
-          _viewers = List<Map<String, dynamic>>.from(data);
+          _viewers = List<Map<String, dynamic>>.from(usersData);
           _isLoading = false;
         });
       }
@@ -75,7 +106,7 @@ class _ViewersSheetState extends State<ViewersSheet> {
 
               // Header
               Text(
-                "Viewers (${widget.viewerIds.length})",
+                "Viewers (${_viewers?.length ?? 0})",
                 style: const TextStyle(
                   color: Colors.white,
                   fontWeight: FontWeight.bold,
