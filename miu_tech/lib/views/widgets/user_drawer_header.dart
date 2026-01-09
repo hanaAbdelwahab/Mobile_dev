@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../screens/login_page.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../screens/calender_screen.dart';
 import '../screens/SavedPostsPage.dart'; // ✅ Add this import
@@ -149,7 +150,15 @@ class _UserDrawerContentState extends State<UserDrawerContent> {
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 20),
                     child: ElevatedButton.icon(
-                      onPressed: () {},
+                     onPressed: () async {
+                      await Supabase.instance.client.auth.signOut();
+                      if (!mounted) return;
+                      ScaffoldMessenger.of(context).clearSnackBars();
+                      Navigator.of(context, rootNavigator: true).pushAndRemoveUntil(
+                        MaterialPageRoute(builder: (_) => const LoginPage()),
+                        (route) => false,
+                        );
+                      },
                       icon: const Icon(Icons.logout, color: Colors.white),
                       label: const Text(
                         "Log Out",

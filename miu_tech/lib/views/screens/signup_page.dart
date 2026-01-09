@@ -23,6 +23,8 @@ class _SignUpPageState extends State<SignUpPage> {
   final TextEditingController _bio = TextEditingController();
   final TextEditingController _location = TextEditingController();
 
+final FocusNode _emailFocusNode = FocusNode();
+
   bool _isLoading = false;
   bool _obscure = true;
   File? _selectedProfileImage;
@@ -239,16 +241,20 @@ if (fullYear > currentYear) {
 }
 
   @override
-  void initState() {
-    super.initState();
-    // Listen to email changes for auto-detection
-    _email.addListener(() {
+void initState() {
+  super.initState();
+
+  _emailFocusNode.addListener(() {
+    if (!_emailFocusNode.hasFocus) {
+      // المستخدم ساب حقل الإيميل
       _onEmailChanged(_email.text.trim());
-    });
-  }
+    }
+  });
+}
 
   @override
   void dispose() {
+     _emailFocusNode.dispose();
     _name.dispose();
     _email.dispose();
     _password.dispose();
@@ -858,7 +864,7 @@ if (fullYear > currentYear) {
                 _input("Full Name", Icons.person, _name),
                 const SizedBox(height: 16),
 
-                _input("MIU Email", Icons.email, _email, validator: (v) {
+                _input("MIU Email",Icons.email,_email,focusNode: _emailFocusNode,validator: (v){
                   if (v == null || v.isEmpty) return "Required";
                   if (!isMIUEmail(v)) return "Use MIU email only (@miuegypt.edu.eg)";
                   return null;
@@ -1020,13 +1026,16 @@ if (fullYear > currentYear) {
   }
 
   Widget _input(
-    String label,
-    IconData icon,
-    TextEditingController controller, {
-    String? Function(String?)? validator,
-    int maxLines = 1,
-  }) {
+  String label,
+  IconData icon,
+  TextEditingController controller, {
+  String? Function(String?)? validator,
+  int maxLines = 1,
+  FocusNode? focusNode,
+}) {
+
     return TextFormField(
+      focusNode: focusNode,
       controller: controller,
       maxLines: maxLines,
       validator: validator ?? (v) => v == null || v.isEmpty ? "Required" : null,
