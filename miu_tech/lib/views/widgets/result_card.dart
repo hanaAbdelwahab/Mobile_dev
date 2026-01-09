@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../models/search_result_model.dart';
 import '../../models/post_model.dart';
-import '../screens/user_profile_screen.dart';
+import '../screens/OtherUserProfilePage.dart';
 import '../screens/post_detail_screen.dart';
 
 class ResultCard extends StatelessWidget {
@@ -42,7 +42,8 @@ class ResultCard extends StatelessWidget {
               Navigator.push(
                 context,
                 MaterialPageRoute(
-                  builder: (_) => UserProfileScreen(userId: user['user_id']),
+                  builder: (_) =>
+                      OtherUserProfilePage(userId: user['user_id'].toString()),
                 ),
               );
             },
@@ -61,7 +62,10 @@ class ResultCard extends StatelessWidget {
             onTap: () {
               Navigator.push(
                 context,
-                MaterialPageRoute(builder: (_) => PostDetailScreen(post: post)),
+                MaterialPageRoute(
+                  builder: (_) =>
+                      PostDetailScreen(postId: int.tryParse(post.postId) ?? 0),
+                ),
               );
             },
             child: Padding(

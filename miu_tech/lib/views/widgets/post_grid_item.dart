@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../models/post_model.dart';
-import '../screens/post_detail_screen.dart';
+import '../../views/screens/post_detail_screen.dart';
 
 class PostGridItem extends StatelessWidget {
   final PostModel post;
@@ -13,7 +13,10 @@ class PostGridItem extends StatelessWidget {
       onTap: () {
         Navigator.push(
           context,
-          MaterialPageRoute(builder: (_) => PostDetailScreen(post: post)),
+          MaterialPageRoute(
+            builder: (_) =>
+                PostDetailScreen(postId: int.tryParse(post.postId) ?? 0),
+          ),
         );
       },
       child: Container(

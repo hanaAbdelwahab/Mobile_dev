@@ -45,7 +45,8 @@ class _CommentsPageState extends State<CommentsPage> {
 
   // comments tree
   List<CommentModel> _allComments = []; // flat list
-  Map<int?, List<CommentModel>> _childrenMap = {}; // parent_comment_id -> children
+  Map<int?, List<CommentModel>> _childrenMap =
+      {}; // parent_comment_id -> children
 
   bool _loading = true;
 
@@ -146,8 +147,11 @@ class _CommentsPageState extends State<CommentsPage> {
       // Load post likes and reposts using providers
       if (mounted) {
         final postProvider = Provider.of<PostProvider>(context, listen: false);
-        final repostProvider = Provider.of<RepostProvider>(context, listen: false);
-        
+        final repostProvider = Provider.of<RepostProvider>(
+          context,
+          listen: false,
+        );
+
         postProvider.loadPostLikes(widget.postId);
         repostProvider.loadRepostData(widget.postId);
       }
@@ -168,19 +172,21 @@ class _CommentsPageState extends State<CommentsPage> {
     setState(() {
       if (currentlyLiked) {
         _likedCommentsByMe.remove(commentId);
-        _commentLikeCounts[commentId] = (_commentLikeCounts[commentId] ?? 1) - 1;
+        _commentLikeCounts[commentId] =
+            (_commentLikeCounts[commentId] ?? 1) - 1;
       } else {
         _likedCommentsByMe.add(commentId);
-        _commentLikeCounts[commentId] = (_commentLikeCounts[commentId] ?? 0) + 1;
+        _commentLikeCounts[commentId] =
+            (_commentLikeCounts[commentId] ?? 0) + 1;
       }
     });
 
     try {
       if (currentlyLiked) {
-        await supabase
-            .from('comment_likes')
-            .delete()
-            .match({'comment_id': commentId, 'user_id': widget.currentUserId});
+        await supabase.from('comment_likes').delete().match({
+          'comment_id': commentId,
+          'user_id': widget.currentUserId,
+        });
       } else {
         await supabase.from('comment_likes').insert({
           'comment_id': commentId,
@@ -193,14 +199,17 @@ class _CommentsPageState extends State<CommentsPage> {
       setState(() {
         if (currentlyLiked) {
           _likedCommentsByMe.add(commentId);
-          _commentLikeCounts[commentId] = (_commentLikeCounts[commentId] ?? 0) + 1;
+          _commentLikeCounts[commentId] =
+              (_commentLikeCounts[commentId] ?? 0) + 1;
         } else {
           _likedCommentsByMe.remove(commentId);
-          _commentLikeCounts[commentId] = (_commentLikeCounts[commentId] ?? 1) - 1;
+          _commentLikeCounts[commentId] =
+              (_commentLikeCounts[commentId] ?? 1) - 1;
         }
       });
-      ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('Failed to update like')));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Failed to update like')));
     }
   }
 
@@ -223,8 +232,9 @@ class _CommentsPageState extends State<CommentsPage> {
       _newCommentController.clear();
       await _loadAll();
     } catch (e) {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('Failed to post comment')));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Failed to post comment')));
     }
   }
 
@@ -253,8 +263,9 @@ class _CommentsPageState extends State<CommentsPage> {
 
       await _loadAll();
     } catch (e) {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('Failed to post reply')));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Failed to post reply')));
     }
   }
 
@@ -299,10 +310,14 @@ class _CommentsPageState extends State<CommentsPage> {
 
               Expanded(
                 child: Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 10,
+                  ),
                   decoration: BoxDecoration(
-                    color: indent == 0 ? Colors.grey.shade100 : Colors.grey.shade50,
+                    color: indent == 0
+                        ? Colors.grey.shade100
+                        : Colors.grey.shade50,
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Column(
@@ -319,7 +334,9 @@ class _CommentsPageState extends State<CommentsPage> {
                           Text(
                             _timeAgo(comment.createdAt),
                             style: TextStyle(
-                                color: Colors.grey.shade600, fontSize: 12),
+                              color: Colors.grey.shade600,
+                              fontSize: 12,
+                            ),
                           ),
                         ],
                       ),
@@ -336,7 +353,9 @@ class _CommentsPageState extends State<CommentsPage> {
                           if (likeCount > 0)
                             Container(
                               padding: const EdgeInsets.symmetric(
-                                  horizontal: 8, vertical: 4),
+                                horizontal: 8,
+                                vertical: 4,
+                              ),
                               decoration: BoxDecoration(
                                 color: Colors.red.shade50,
                                 borderRadius: BorderRadius.circular(12),
@@ -362,14 +381,17 @@ class _CommentsPageState extends State<CommentsPage> {
                                       ? Icons.thumb_up_alt
                                       : Icons.thumb_up_alt_outlined,
                                   size: 18,
-                                  color: liked ? Colors.red : Colors.grey.shade600,
+                                  color: liked
+                                      ? Colors.red
+                                      : Colors.grey.shade600,
                                 ),
                                 const SizedBox(width: 4),
                                 Text(
                                   "Like",
                                   style: TextStyle(
-                                    color:
-                                        liked ? Colors.red : Colors.grey.shade600,
+                                    color: liked
+                                        ? Colors.red
+                                        : Colors.grey.shade600,
                                   ),
                                 ),
                               ],
@@ -390,11 +412,16 @@ class _CommentsPageState extends State<CommentsPage> {
                             },
                             child: Row(
                               children: [
-                                Icon(Icons.reply,
-                                    size: 18, color: Colors.grey.shade600),
+                                Icon(
+                                  Icons.reply,
+                                  size: 18,
+                                  color: Colors.grey.shade600,
+                                ),
                                 const SizedBox(width: 4),
-                                Text("Reply",
-                                    style: TextStyle(color: Colors.grey.shade600)),
+                                Text(
+                                  "Reply",
+                                  style: TextStyle(color: Colors.grey.shade600),
+                                ),
                               ],
                             ),
                           ),
@@ -411,39 +438,39 @@ class _CommentsPageState extends State<CommentsPage> {
 
           // REPLY INPUT
           if (_replyControllers.containsKey(comment.commentId))
-  Padding(
-    padding: const EdgeInsets.only(left: 46),
-    child: Row(
-      children: [
-        Expanded(
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12),
-            decoration: BoxDecoration(
-              color: Colors.grey.shade200,
-              borderRadius: BorderRadius.circular(24),
-            ),
-            child: TextField(
-              controller: _replyControllers[comment.commentId],
-              decoration: const InputDecoration(
-                hintText: "Write a reply...",
-                border: InputBorder.none,
+            Padding(
+              padding: const EdgeInsets.only(left: 46),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade200,
+                        borderRadius: BorderRadius.circular(24),
+                      ),
+                      child: TextField(
+                        controller: _replyControllers[comment.commentId],
+                        decoration: const InputDecoration(
+                          hintText: "Write a reply...",
+                          border: InputBorder.none,
+                        ),
+                      ),
+                    ),
+                  ),
+
+                  const SizedBox(width: 6),
+
+                  // ✅ السهم اللي كنتِ بتدوري عليه
+                  IconButton(
+                    icon: const Icon(Icons.send, color: Colors.blue),
+                    onPressed: () {
+                      _addReply(comment.commentId);
+                    },
+                  ),
+                ],
               ),
             ),
-          ),
-        ),
-
-        const SizedBox(width: 6),
-
-        // ✅ السهم اللي كنتِ بتدوري عليه
-        IconButton(
-          icon: const Icon(Icons.send, color: Colors.blue),
-          onPressed: () {
-            _addReply(comment.commentId);
-          },
-        ),
-      ],
-    ),
-  ),
 
           // CHILD REPLIES
           for (final reply in replies) ...[
@@ -489,7 +516,9 @@ class _CommentsPageState extends State<CommentsPage> {
                         const Text(
                           "Comments",
                           style: TextStyle(
-                              fontWeight: FontWeight.bold, fontSize: 16),
+                            fontWeight: FontWeight.bold,
+                            fontSize: 16,
+                          ),
                         ),
 
                         const SizedBox(height: 10),
@@ -520,8 +549,10 @@ class _CommentsPageState extends State<CommentsPage> {
 
                 // INPUT for new top-level comment
                 Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 10,
+                  ),
                   color: Colors.white,
                   child: Row(
                     children: [
@@ -545,7 +576,7 @@ class _CommentsPageState extends State<CommentsPage> {
                       IconButton(
                         icon: const Icon(Icons.send, color: Colors.blue),
                         onPressed: _addTopLevelComment,
-                      )
+                      ),
                     ],
                   ),
                 ),
@@ -594,36 +625,36 @@ class _CommentsPageState extends State<CommentsPage> {
                     ),
                     Text(
                       _timeAgo(p.createdAt),
-                      style:
-                          TextStyle(color: Colors.grey.shade600, fontSize: 12),
+                      style: TextStyle(
+                        color: Colors.grey.shade600,
+                        fontSize: 12,
+                      ),
                     ),
                   ],
                 ),
               ),
 
               // optional top-right actions (save/bookmark)
-             Consumer<SavedPostProvider>(
-  builder: (context, savedProvider, _) {
-    final isSaved = savedProvider.isSaved(p.postId);
+              Consumer<SavedPostProvider>(
+                builder: (context, savedProvider, _) {
+                  final isSaved = savedProvider.isSaved(p.postId);
 
-    return IconButton(
-      icon: Icon(
-        isSaved
-            ? Icons.bookmark
-            : Icons.bookmark_border_rounded,
-        color: isSaved ? Colors.red : Colors.grey,
-        size: 22,
-      ),
-      onPressed: () async {
-        await savedProvider.toggleSave(
-          userId: widget.currentUserId,
-          postId: p.postId,
-        );
-      },
-    );
-  },
-),
- ],
+                  return IconButton(
+                    icon: Icon(
+                      isSaved ? Icons.bookmark : Icons.bookmark_border_rounded,
+                      color: isSaved ? Colors.red : Colors.grey,
+                      size: 22,
+                    ),
+                    onPressed: () async {
+                      await savedProvider.toggleSave(
+                        userId: widget.currentUserId,
+                        postId: p.postId,
+                      );
+                    },
+                  );
+                },
+              ),
+            ],
           ),
 
           const SizedBox(height: 12),
@@ -636,8 +667,10 @@ class _CommentsPageState extends State<CommentsPage> {
                 .from('tags')
                 .select('tag_id, tag_name, post_id')
                 .eq('post_id', widget.postId)
-                .then((data) =>
-                    (data as List).map((t) => TagModel.fromMap(t)).toList()),
+                .then(
+                  (data) =>
+                      (data as List).map((t) => TagModel.fromMap(t)).toList(),
+                ),
             builder: (context, snap) {
               if (!snap.hasData || snap.data!.isEmpty) {
                 return const SizedBox();
@@ -647,8 +680,10 @@ class _CommentsPageState extends State<CommentsPage> {
                 spacing: 6,
                 children: snap.data!.map((tag) {
                   return Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 6,
+                    ),
                     decoration: BoxDecoration(
                       color: Colors.red.withOpacity(0.08),
                       borderRadius: BorderRadius.circular(12),
@@ -705,8 +740,7 @@ class _CommentsPageState extends State<CommentsPage> {
                           '$likeCount',
                           style: TextStyle(
                             fontWeight: FontWeight.w600,
-                            color:
-                                liked ? Colors.red : Colors.grey.shade800,
+                            color: liked ? Colors.red : Colors.grey.shade800,
                           ),
                         ),
                         const SizedBox(width: 6),
@@ -729,14 +763,21 @@ class _CommentsPageState extends State<CommentsPage> {
                 },
                 child: Row(
                   children: [
-                    Icon(Icons.comment_outlined, size: 20, color: Colors.grey.shade700),
+                    Icon(
+                      Icons.comment_outlined,
+                      size: 20,
+                      color: Colors.grey.shade700,
+                    ),
                     const SizedBox(width: 8),
                     Text(
                       '$commentCount',
                       style: const TextStyle(fontWeight: FontWeight.w600),
                     ),
                     const SizedBox(width: 6),
-                    Text('Comment', style: TextStyle(color: Colors.grey.shade600)),
+                    Text(
+                      'Comment',
+                      style: TextStyle(color: Colors.grey.shade600),
+                    ),
                   ],
                 ),
               ),
@@ -754,7 +795,9 @@ class _CommentsPageState extends State<CommentsPage> {
                         await repostProvider.toggleRepost(p.postId);
                       } catch (e) {
                         ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('Failed to update repost')),
+                          const SnackBar(
+                            content: Text('Failed to update repost'),
+                          ),
                         );
                       }
                     },
@@ -773,7 +816,9 @@ class _CommentsPageState extends State<CommentsPage> {
                         Text(
                           "Repost",
                           style: TextStyle(
-                            color: isReposted ? Colors.red : Colors.grey.shade600,
+                            color: isReposted
+                                ? Colors.red
+                                : Colors.grey.shade600,
                           ),
                         ),
                       ],

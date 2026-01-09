@@ -2,14 +2,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/search_result_model.dart';
 import '../models/post_model.dart';
-import '../models/user_model.dart';
-
 
 // Provider for Supabase client
 final supabaseProvider = Provider<SupabaseClient>((ref) {
   return Supabase.instance.client;
 });
 
+// Search repository provider
 final searchRepositoryProvider = Provider<SearchRepository>((ref) {
   final client = ref.watch(supabaseProvider);
   return SearchRepository(client);
@@ -17,30 +16,33 @@ final searchRepositoryProvider = Provider<SearchRepository>((ref) {
 
 class SearchRepository {
   final SupabaseClient client;
+
   SearchRepository(this.client);
 
   PostModel _mapPost(Map<String, dynamic> data) {
+    // Fix media_url if it's just a filename (not a full URL)
     if (data['media_url'] != null &&
         data['media_url'].toString().trim().isNotEmpty) {
       final url = data['media_url'].toString();
       if (!url.startsWith('http')) {
-        data['media_url'] =
-            client.storage.from('Posts').getPublicUrl(url);
+        // Assume it's a path in the 'post-media' bucket
+        data['media_url'] = client.storage.from('post-media').getPublicUrl(url);
       }
     }
     return PostModel.fromMap(data);
   }
 
-  UserModel _mapUser(Map<String, dynamic> data) {
+  Map<String, dynamic> _mapUser(Map<String, dynamic> data) {
     if (data['profile_image'] != null &&
         data['profile_image'].toString().trim().isNotEmpty) {
       final url = data['profile_image'].toString();
       if (!url.startsWith('http')) {
-        data['profile_image'] =
-            client.storage.from('profile-images').getPublicUrl(url);
+        data['profile_image'] = client.storage
+            .from('profile-image')
+            .getPublicUrl(url);
       }
     }
-    return UserModel.fromMap(data);
+    return data;
   }
 
   int _categoryNameToId(String name) {
@@ -100,18 +102,7 @@ class SearchRepository {
 
     // Search users
     if (filterCategory == 'All' || filterCategory == 'Users') {
-      var userQuery = client.from('users').select('''
-  user_id,
-  name,
-  email,
-  role,
-  profile_image,
-  department,
-  bio,
-  created_at,
-  location
-''');
-
+      var userQuery = client.from('users').select();
       if (location != 'All') {
         userQuery = userQuery.eq('location', location);
       }
