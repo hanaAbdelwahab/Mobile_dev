@@ -213,12 +213,11 @@ class _CommentsPageState extends State<CommentsPage> {
 
     try {
       await supabase.from('comments').insert({
-        'post_id': widget.postId,
-        'user_id': widget.currentUserId,
-        'content': text,
-        'created_at': DateTime.now().toIso8601String(),
-        'parent_comment_id': null,
-      });
+  'post_id': widget.postId,
+  'user_id': widget.currentUserId,
+  'content': text,
+});
+
 
       _newCommentController.clear();
       await _loadAll();
@@ -242,9 +241,10 @@ class _CommentsPageState extends State<CommentsPage> {
         'post_id': widget.postId,
         'user_id': widget.currentUserId,
         'content': text,
-        'created_at': DateTime.now().toIso8601String(),
-        'parent_comment_id': parentCommentId,
+        'parent_comment_id': parentCommentId, // ✅ ده المهم
       });
+
+
 
       controller?.clear();
       setState(() {

@@ -21,7 +21,7 @@ class CommentModel {
       postId: map['post_id'],
       userId: map['user_id'],
       content: map['content'],
-      createdAt: DateTime.parse(map['created_at']),
+      createdAt: DateTime.parse(map['created_at']).toLocal(),
       parentCommentId: map.containsKey('parent_comment_id') && map['parent_comment_id'] != null
           ? map['parent_comment_id'] as int
           : null,
