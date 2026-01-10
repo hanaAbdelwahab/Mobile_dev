@@ -2413,7 +2413,7 @@ Future<void> _updateMuteStatus(bool value) async {
                 SwitchListTile(
                   value: widget.settings.isMuted,
                   onChanged: isSaving ? null : _updateMuteStatus,
-                  activeColor: AppColors.primary,
+                  activeThumbColor: AppColors.primary,
                   contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
                   title: const Text(
                     "Mute Notifications",
@@ -2483,7 +2483,7 @@ Future<void> _updateMuteStatus(bool value) async {
                 SwitchListTile(
                   value: widget.settings.isBlocked,
                   onChanged: isSaving ? null : _updateBlockStatus,
-                  activeColor: Colors.orange[700],
+                  activeThumbColor: Colors.orange[700],
                   contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
                   title: const Text(
                     "Block User",

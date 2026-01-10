@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 class ManageProjectsPage extends StatelessWidget {
-  const ManageProjectsPage({Key? key}) : super(key: key);
+  const ManageProjectsPage({super.key});
 
   @override
   Widget build(BuildContext context) {

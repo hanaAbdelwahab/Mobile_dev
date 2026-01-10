@@ -4,7 +4,7 @@ import 'package:flutter/services.dart';
 import 'login_page.dart'; // Updated import
 
 class SplashScreen extends StatefulWidget {
-  const SplashScreen({Key? key}) : super(key: key);
+  const SplashScreen({super.key});
 
   @override
   State<SplashScreen> createState() => _SplashScreenState();

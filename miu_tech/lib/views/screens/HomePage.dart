@@ -597,7 +597,7 @@ if (_showFreelancingHub) ...[
   // FREELANCING HUB PROJECTS
   ..._getHardcodedProjects().map((project) {
     return FreelanceProjectCard(project: project);
-  }).toList(),
+  }),
 ] else ...[
   // CATEGORIES (Only show in Discover/For You)
   SizedBox(
@@ -814,8 +814,9 @@ const StoriesRow(),
 
         for (final f in friendsResult as List) {
           if (f['user_id'] != widget.currentUserId) friendIds.add(f['user_id']);
-          if (f['friend_id'] != widget.currentUserId)
+          if (f['friend_id'] != widget.currentUserId) {
             friendIds.add(f['friend_id']);
+          }
         }
 
         // Cache the friend IDs for repost indicator
@@ -1201,7 +1202,7 @@ Widget _feedCard(PostModel post) {
                           const SizedBox(height: 12),
 
                           // POST TITLE (if exists)
-                          if (post.content != null && post.content.isNotEmpty)
+                          if (post.content.isNotEmpty)
                             Text(
                               post.content,
                               style: TextStyle(fontSize: 14, color: Colors.grey[800]),

@@ -20,8 +20,7 @@ import '../widgets/user_drawer_header.dart';
 class AnnouncementCard extends StatelessWidget {
   final Map<String, dynamic> announcement;
 
-  const AnnouncementCard({Key? key, required this.announcement})
-    : super(key: key);
+  const AnnouncementCard({super.key, required this.announcement});
 
   @override
   Widget build(BuildContext context) {
@@ -490,8 +489,9 @@ class _MyProfileState extends State<MyProfile>
         .eq('user_id', widget.userId)
         .order('start_date', ascending: false);
 
-    if (mounted)
+    if (mounted) {
       setState(() => experiences = List<Map<String, dynamic>>.from(data));
+    }
   }
 
   Future<void> _loadLicenses() async {
@@ -501,8 +501,9 @@ class _MyProfileState extends State<MyProfile>
         .eq('user_id', widget.userId)
         .order('issue_date', ascending: false);
 
-    if (mounted)
+    if (mounted) {
       setState(() => licenses = List<Map<String, dynamic>>.from(data));
+    }
   }
 
   Future<void> _loadProjects() async {
@@ -512,8 +513,9 @@ class _MyProfileState extends State<MyProfile>
         .eq('user_id', widget.userId)
         .order('start_date', ascending: false);
 
-    if (mounted)
+    if (mounted) {
       setState(() => projects = List<Map<String, dynamic>>.from(data));
+    }
   }
 
   Future<void> _loadSkills() async {
@@ -643,8 +645,9 @@ class _MyProfileState extends State<MyProfile>
           .eq('user_id', widget.userId)
           .order('created_at', ascending: false);
 
-      if (mounted)
+      if (mounted) {
         setState(() => userComments = List<Map<String, dynamic>>.from(data));
+      }
     } catch (e) {
       print('Error loading comments: $e');
       // Don't break the app if comments fail to load
@@ -682,8 +685,9 @@ class _MyProfileState extends State<MyProfile>
           .eq('user_id', widget.userId)
           .order('created_at', ascending: false);
 
-      if (mounted)
+      if (mounted) {
         setState(() => userReposts = List<Map<String, dynamic>>.from(data));
+      }
     } catch (e) {
       print('Error loading reposts: $e');
       if (mounted) setState(() => userReposts = []);
@@ -1424,8 +1428,9 @@ class _MyProfileState extends State<MyProfile>
                                       firstDate: DateTime(1950),
                                       lastDate: DateTime.now(),
                                     );
-                                    if (picked != null)
+                                    if (picked != null) {
                                       setSheetState(() => startDate = picked);
+                                    }
                                   },
                                   child: _buildDateDisplay(
                                     DateFormat('MMMM yyyy').format(startDate),
@@ -1449,8 +1454,9 @@ class _MyProfileState extends State<MyProfile>
                                         firstDate: DateTime(1950),
                                         lastDate: DateTime.now(),
                                       );
-                                      if (picked != null)
+                                      if (picked != null) {
                                         setSheetState(() => endDate = picked);
+                                      }
                                     },
                                     child: _buildDateDisplay(
                                       endDate != null
@@ -1480,8 +1486,9 @@ class _MyProfileState extends State<MyProfile>
                   child: ElevatedButton(
                     onPressed: () async {
                       if (titleController.text.isEmpty ||
-                          companyController.text.isEmpty)
+                          companyController.text.isEmpty) {
                         return;
+                      }
                       final data = {
                         'user_id': widget.userId,
                         'title': titleController.text,
@@ -1596,8 +1603,9 @@ class _MyProfileState extends State<MyProfile>
                 child: ElevatedButton(
                   onPressed: () async {
                     if (nameController.text.isEmpty ||
-                        orgController.text.isEmpty)
+                        orgController.text.isEmpty) {
                       return;
+                    }
                     await _addLicense({
                       'name': nameController.text,
                       'issuing_organization': orgController.text,
@@ -1843,8 +1851,9 @@ class _MyProfileState extends State<MyProfile>
                                       firstDate: DateTime(1950),
                                       lastDate: DateTime.now(),
                                     );
-                                    if (picked != null)
+                                    if (picked != null) {
                                       setModalState(() => startDate = picked);
+                                    }
                                   },
                                   child: _buildDateDisplay(
                                     DateFormat('MMMM yyyy').format(startDate),
@@ -1868,8 +1877,9 @@ class _MyProfileState extends State<MyProfile>
                                         firstDate: DateTime(1950),
                                         lastDate: DateTime.now(),
                                       );
-                                      if (picked != null)
+                                      if (picked != null) {
                                         setModalState(() => endDate = picked);
+                                      }
                                     },
                                     child: _buildDateDisplay(
                                       endDate != null
@@ -2056,8 +2066,9 @@ class _MyProfileState extends State<MyProfile>
                                       firstDate: DateTime(1950),
                                       lastDate: DateTime.now(),
                                     );
-                                    if (picked != null)
+                                    if (picked != null) {
                                       setModalState(() => startDate = picked);
+                                    }
                                   },
                                   child: _buildDateDisplay(
                                     DateFormat('MMMM yyyy').format(startDate),
@@ -2081,8 +2092,9 @@ class _MyProfileState extends State<MyProfile>
                                         firstDate: DateTime(1950),
                                         lastDate: DateTime.now(),
                                       );
-                                      if (picked != null)
+                                      if (picked != null) {
                                         setModalState(() => endDate = picked);
+                                      }
                                     },
                                     child: _buildDateDisplay(
                                       endDate != null
@@ -5025,11 +5037,11 @@ class CreatePostModal extends StatefulWidget {
   final Map<String, dynamic>? editPostData;
 
   const CreatePostModal({
-    Key? key,
+    super.key,
     required this.userId,
     this.userRole, // ADD THIS LINE
     this.editPostData,
-  }) : super(key: key);
+  });
 
   @override
   State<CreatePostModal> createState() => _CreatePostModalState();
@@ -5064,9 +5076,9 @@ class _CreatePostModalState extends State<CreatePostModal>
   // These are the ones causing your errors:
   String _postType = 'Post';
   DateTime? _selectedDateTime;
-  List<XFile> _selectedImages =
+  final List<XFile> _selectedImages =
       []; // Note: changed from XFile? to List to match your .clear() call
-  List<PlatformFile> _selectedFiles = []; // For file attachments
+  final List<PlatformFile> _selectedFiles = []; // For file attachments
 
   final ImagePicker _imagePicker = ImagePicker();
 
@@ -5874,9 +5886,9 @@ class _CreatePostModalState extends State<CreatePostModal>
   }
 
   String _formatFileSize(int bytes) {
-    if (bytes < 1024)
+    if (bytes < 1024) {
       return '$bytes B';
-    else if (bytes < 1024 * 1024)
+    } else if (bytes < 1024 * 1024)
       return '${(bytes / 1024).toStringAsFixed(1)} KB';
     else
       return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
@@ -7099,12 +7111,12 @@ class PostDetailsScreen extends StatefulWidget {
   final String? currentUserImage;
 
   const PostDetailsScreen({
-    Key? key,
+    super.key,
     required this.post,
     required this.currentUserId,
     this.currentUserName,
     this.currentUserImage,
-  }) : super(key: key);
+  });
 
   @override
   State<PostDetailsScreen> createState() => _PostDetailsScreenState();
@@ -7634,8 +7646,9 @@ class _PostDetailsScreenState extends State<PostDetailsScreen> {
                         FutureBuilder<int>(
                           future: _getCommentLikeCount(comment['comment_id']),
                           builder: (context, snap) {
-                            if (!snap.hasData || snap.data == 0)
+                            if (!snap.hasData || snap.data == 0) {
                               return const SizedBox.shrink();
+                            }
                             return Padding(
                               padding: const EdgeInsets.only(right: 4),
                               child: Row(

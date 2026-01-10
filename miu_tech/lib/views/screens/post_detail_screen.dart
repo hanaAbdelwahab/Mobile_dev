@@ -102,7 +102,7 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
           .maybeSingle();
 
       if (postData != null) {
-        _post = PostModel.fromMap(postData as Map<String, dynamic>);
+        _post = PostModel.fromMap(postData);
       }
 
       // Load comments for the post (all)
@@ -127,7 +127,9 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
       // Prepare list of involved user IDs (post author + commenters)
       final userIds = <int>{};
       if (_post != null) userIds.add(_post!.authorId);
-      for (final c in _allComments) userIds.add(c.userId);
+      for (final c in _allComments) {
+        userIds.add(c.userId);
+      }
 
       // Load user names and avatars in a single filter call if possible
       _userNames.clear();

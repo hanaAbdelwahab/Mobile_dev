@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../controllers/search_controller.dart';
-import '../../providers/supabase_provider.dart';
 import '../../models/search_result_model.dart';
 import '../../models/post_model.dart';
 import '../widgets/result_card.dart';

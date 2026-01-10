@@ -348,8 +348,8 @@ class _ChatsListPageState extends State<ChatsListPage> {
                 ),
       floatingActionButton: FloatingActionButton(
         backgroundColor: Colors.red[700],
-        child: const Icon(Icons.message, color: Colors.white),
         onPressed: openNewMessage,
+        child: const Icon(Icons.message, color: Colors.white),
       ),
     );
   }
@@ -1374,7 +1374,7 @@ class _ChatSettingsPageState extends State<ChatSettingsPage> {
                   title: const Text("Mute Notifications"),
                   subtitle: const Text("Turn off notifications for this chat"),
                   secondary: const Icon(Icons.notifications_off),
-                  activeColor: Colors.red[700],
+                  activeThumbColor: Colors.red[700],
                   onChanged: isUpdating 
                       ? null 
                       : (value) {
@@ -1390,7 +1390,7 @@ class _ChatSettingsPageState extends State<ChatSettingsPage> {
                   title: const Text("Block User"),
                   subtitle: const Text("Block messages from this user"),
                   secondary: const Icon(Icons.block),
-                  activeColor: Colors.red[700],
+                  activeThumbColor: Colors.red[700],
                   onChanged: isUpdating 
                       ? null 
                       : (value) {

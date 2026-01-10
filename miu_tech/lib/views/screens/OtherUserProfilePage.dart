@@ -1373,7 +1373,7 @@ _buildActivityCard(),
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  '${followerCount} followers',
+                  '$followerCount followers',
                   style: TextStyle(
                     fontSize: 14,
                     color: Colors.grey[700],
@@ -1983,7 +1983,7 @@ _buildActivityCard(),
           // LIMITED Comments list
           ...limitedComments.map((comment) {
             return _buildCommentItem(comment);
-          }).toList(),
+          }),
 
           // View more comments text
           if (comments.length > maxCommentsToShow)
@@ -2599,7 +2599,7 @@ Widget _buildExperienceCard() {
               ),
             ],
           );
-        }).toList(),
+        }),
       ],
     ),
   );
@@ -2697,7 +2697,7 @@ Widget _buildExperienceCard() {
               ),
             ],
           );
-        }).toList(),
+        }),
       ],
     ),
   );
@@ -2740,7 +2740,7 @@ Widget _buildExperienceCard() {
                   skill['name'] ?? 'Skill', skill['description'], endorsements),
             ],
           );
-        }).toList(),
+        }),
         if (hasMore) ...[
           const SizedBox(height: 20),
           Divider(height: 1, color: Colors.grey[300]),
@@ -2921,7 +2921,7 @@ void _showAllSkills() {
     shape: const RoundedRectangleBorder(
       borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
     ),
-    builder: (context) => Container(
+    builder: (context) => SizedBox(
       height: MediaQuery.of(context).size.height * 0.9,
       child: Column(
         children: [

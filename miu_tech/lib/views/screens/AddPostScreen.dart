@@ -14,7 +14,7 @@ final supabase = Supabase.instance.client;
 class AddPostScreen extends StatefulWidget {
   final int? currentUserId;
 
-  const AddPostScreen({Key? key, this.currentUserId}) : super(key: key);
+  const AddPostScreen({super.key, this.currentUserId});
 
   @override
   State<AddPostScreen> createState() => _AddPostScreenState();
@@ -155,11 +155,11 @@ class CreatePostModal extends StatefulWidget {
   final Map<String, dynamic>? editPostData; // Data passed when in edit mode
 
   const CreatePostModal({
-    Key? key,
+    super.key,
     required this.userId,
     this.userRole, // ADD THIS LINE
     this.editPostData,
-  }) : super(key: key);
+  });
 
   @override
   State<CreatePostModal> createState() => _CreatePostModalState();
@@ -189,8 +189,8 @@ final TextEditingController _teamSizeController = TextEditingController();
 
   String _postType = 'Post';
   DateTime? _selectedDateTime;
-  List<XFile> _selectedImages = [];
-  List<PlatformFile> _selectedFiles = [];
+  final List<XFile> _selectedImages = [];
+  final List<PlatformFile> _selectedFiles = [];
 String? _competitionSubType; // For Alumni: 'partner' or 'announcement'
 
   final ImagePicker _imagePicker = ImagePicker();
@@ -1007,9 +1007,9 @@ void _goBackToCategories() {
   }
 
   String _formatFileSize(int bytes) {
-    if (bytes < 1024)
+    if (bytes < 1024) {
       return '$bytes B';
-    else if (bytes < 1024 * 1024)
+    } else if (bytes < 1024 * 1024)
       return '${(bytes / 1024).toStringAsFixed(1)} KB';
     else
       return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';

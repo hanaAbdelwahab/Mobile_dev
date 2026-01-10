@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 class ManageOpportunitiesPage extends StatelessWidget {
-  const ManageOpportunitiesPage({Key? key}) : super(key: key);
+  const ManageOpportunitiesPage({super.key});
 
   @override
   Widget build(BuildContext context) {

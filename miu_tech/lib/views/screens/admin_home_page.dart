@@ -9,7 +9,7 @@ import 'manage_opportunities_page.dart';
 import 'admin_reports_page.dart';
 
 class AdminHomePage extends StatefulWidget {
-  const AdminHomePage({Key? key}) : super(key: key);
+  const AdminHomePage({super.key});
 
   @override
   State<AdminHomePage> createState() => _AdminHomePageState();
@@ -17,9 +17,9 @@ class AdminHomePage extends StatefulWidget {
 
 class _AdminHomePageState extends State<AdminHomePage> {
   int _totalUsers = 0;
-  int _totalPosts = 0;
-  int _totalProjects = 0;
-  int _totalEvents = 0;
+  final int _totalPosts = 0;
+  final int _totalProjects = 0;
+  final int _totalEvents = 0;
   bool _isLoading = true;
 
   @override

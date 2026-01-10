@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class AdminRequestsPage extends StatefulWidget {
-  const AdminRequestsPage({Key? key}) : super(key: key);
+  const AdminRequestsPage({super.key});
 
   @override
   State<AdminRequestsPage> createState() => _AdminRequestsPageState();

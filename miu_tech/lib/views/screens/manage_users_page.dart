@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class ManageUsersPage extends StatefulWidget {
-  const ManageUsersPage({Key? key}) : super(key: key);
+  const ManageUsersPage({super.key});
 
   @override
   State<ManageUsersPage> createState() => _ManageUsersPageState();
@@ -93,7 +93,7 @@ class _ManageUsersPageState extends State<ManageUsersPage> {
                 ),
                 const SizedBox(height: 12),
                 DropdownButtonFormField<String>(
-                  value: selectedRole,
+                  initialValue: selectedRole,
                   decoration: const InputDecoration(
                     labelText: 'Role',
                     border: OutlineInputBorder(),
@@ -108,7 +108,7 @@ class _ManageUsersPageState extends State<ManageUsersPage> {
                 ),
                 const SizedBox(height: 12),
                 DropdownButtonFormField<int>(
-                  value: selectedYear,
+                  initialValue: selectedYear,
                   decoration: const InputDecoration(
                     labelText: 'Academic Year',
                     border: OutlineInputBorder(),
@@ -228,7 +228,7 @@ class _ManageUsersPageState extends State<ManageUsersPage> {
                 ),
                 const SizedBox(height: 12),
                 DropdownButtonFormField<String>(
-                  value: selectedRole,
+                  initialValue: selectedRole,
                   decoration: const InputDecoration(
                     labelText: 'Role',
                     border: OutlineInputBorder(),
@@ -243,7 +243,7 @@ class _ManageUsersPageState extends State<ManageUsersPage> {
                 ),
                 const SizedBox(height: 12),
                 DropdownButtonFormField<int>(
-                  value: selectedYear,
+                  initialValue: selectedYear,
                   decoration: const InputDecoration(
                     labelText: 'Academic Year',
                     border: OutlineInputBorder(),

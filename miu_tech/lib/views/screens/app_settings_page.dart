@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 class AppSettingsPage extends StatefulWidget {
-  const AppSettingsPage({Key? key}) : super(key: key);
+  const AppSettingsPage({super.key});
 
   @override
   State<AppSettingsPage> createState() => _AppSettingsPageState();
@@ -115,7 +115,7 @@ class _AppSettingsPageState extends State<AppSettingsPage> {
       title: Text(title, style: const TextStyle(fontWeight: FontWeight.w600)),
       subtitle: Text(subtitle, style: TextStyle(fontSize: 13, color: Colors.grey[600])),
       secondary: Icon(icon, color: Colors.red),
-      activeColor: Colors.red,
+      activeThumbColor: Colors.red,
     );
   }
 

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 class NotificationPreferencesPage extends StatefulWidget {
-  const NotificationPreferencesPage({Key? key}) : super(key: key);
+  const NotificationPreferencesPage({super.key});
 
   @override
   State<NotificationPreferencesPage> createState() => _NotificationPreferencesPageState();
@@ -39,7 +39,7 @@ class _NotificationPreferencesPageState extends State<NotificationPreferencesPag
                   title: const Text('Post Notifications', style: TextStyle(fontWeight: FontWeight.w600)),
                   subtitle: const Text('Get notified about new posts'),
                   secondary: const Icon(Icons.article_outlined, color: Colors.red),
-                  activeColor: Colors.red,
+                  activeThumbColor: Colors.red,
                 ),
                 const Divider(height: 1),
                 SwitchListTile(
@@ -48,7 +48,7 @@ class _NotificationPreferencesPageState extends State<NotificationPreferencesPag
                   title: const Text('Project Notifications', style: TextStyle(fontWeight: FontWeight.w600)),
                   subtitle: const Text('Updates on graduation projects'),
                   secondary: const Icon(Icons.work_outline, color: Colors.red),
-                  activeColor: Colors.red,
+                  activeThumbColor: Colors.red,
                 ),
                 const Divider(height: 1),
                 SwitchListTile(
@@ -57,7 +57,7 @@ class _NotificationPreferencesPageState extends State<NotificationPreferencesPag
                   title: const Text('Event Notifications', style: TextStyle(fontWeight: FontWeight.w600)),
                   subtitle: const Text('Stay updated on campus events'),
                   secondary: const Icon(Icons.event_outlined, color: Colors.red),
-                  activeColor: Colors.red,
+                  activeThumbColor: Colors.red,
                 ),
                 const Divider(height: 1),
                 SwitchListTile(
@@ -66,7 +66,7 @@ class _NotificationPreferencesPageState extends State<NotificationPreferencesPag
                   title: const Text('Message Notifications', style: TextStyle(fontWeight: FontWeight.w600)),
                   subtitle: const Text('New direct messages'),
                   secondary: const Icon(Icons.message_outlined, color: Colors.red),
-                  activeColor: Colors.red,
+                  activeThumbColor: Colors.red,
                 ),
                 const Divider(height: 1),
                 SwitchListTile(
@@ -75,7 +75,7 @@ class _NotificationPreferencesPageState extends State<NotificationPreferencesPag
                   title: const Text('Email Notifications', style: TextStyle(fontWeight: FontWeight.w600)),
                   subtitle: const Text('Receive notifications via email'),
                   secondary: const Icon(Icons.email_outlined, color: Colors.red),
-                  activeColor: Colors.red,
+                  activeThumbColor: Colors.red,
                 ),
               ],
             ),

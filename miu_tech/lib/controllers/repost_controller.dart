@@ -51,7 +51,7 @@ class RepostController {
           .eq('post_id', postId)
           .filter('user_id', 'in', '(${friendIds.join(',')})');
 
-      if (data == null || (data as List).isEmpty) return [];
+      if ((data as List).isEmpty) return [];
 
       final List<Map<String, dynamic>> friends = [];
 

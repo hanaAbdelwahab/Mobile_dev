@@ -5,7 +5,7 @@
 import 'package:flutter/material.dart';
 
 class EmailConfirmedPage extends StatelessWidget {
-  const EmailConfirmedPage({Key? key}) : super(key: key);
+  const EmailConfirmedPage({super.key});
 
   @override
   Widget build(BuildContext context) {

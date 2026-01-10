@@ -97,7 +97,7 @@ Future<void> main() async {
 }
 
 class MIUTechCircleApp extends StatelessWidget {
-  const MIUTechCircleApp({Key? key}) : super(key: key);
+  const MIUTechCircleApp({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -132,7 +132,6 @@ class MIUTechCircleApp extends StatelessWidget {
             primary: const Color(0xFFE63946),
             secondary: const Color(0xFFDC2F41),
             surface: Colors.white,
-            background: Colors.grey[50]!,
           ),
           appBarTheme: const AppBarTheme(
             backgroundColor: Colors.white,

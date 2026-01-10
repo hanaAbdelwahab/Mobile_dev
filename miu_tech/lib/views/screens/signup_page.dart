@@ -7,7 +7,7 @@ import 'email_verification_page.dart';
 import 'login_page.dart';
 
 class SignUpPage extends StatefulWidget {
-  const SignUpPage({Key? key}) : super(key: key);
+  const SignUpPage({super.key});
 
   @override
   State<SignUpPage> createState() => _SignUpPageState();
@@ -876,7 +876,7 @@ void initState() {
 
                 // ROLE DROPDOWN - DYNAMICALLY RESTRICTED BASED ON EMAIL
                 DropdownButtonFormField<String>(
-                  value: _selectedRole,
+                  initialValue: _selectedRole,
                   decoration: InputDecoration(
                     labelText: "Role",
                     prefixIcon: Icon(
@@ -931,7 +931,7 @@ void initState() {
                 // ACADEMIC YEAR - SHOW ONLY FOR STUDENTS AND ALUMNI
                 if (_showAcademicYear) ...[
                   DropdownButtonFormField<int>(
-                    value: _selectedAcademicYear,
+                    initialValue: _selectedAcademicYear,
                     decoration: InputDecoration(
                       labelText: _selectedRole == "Alumni" ? "Graduation Year" : "Academic Year",
                       prefixIcon: const Icon(Icons.calendar_today, color: Colors.red),
