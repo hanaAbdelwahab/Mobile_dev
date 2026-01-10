@@ -32,7 +32,7 @@ class PostModel {
       categoryId: map['category_id'],
       type: map['type'] ?? '',
       mediaUrl: map['media_url'] == "" ? null : map['media_url'],
-      createdAt: DateTime.parse(map['created_at']),
+      createdAt: DateTime.parse(map['created_at']).toUtc(),
       updatedAt: map['updated_at'] != null
           ? DateTime.tryParse(map['updated_at'])
           : null,

@@ -54,8 +54,6 @@ Future<void> _toggleReminder() async {
   try {
     if (_isAdded) {
       // ❌ REMOVE
-      
-      // 1️⃣ Get the stored Google Calendar event ID
       final reminderData = await supabase
           .from('announcement_reminders')
           .select('google_event_id')
@@ -63,7 +61,6 @@ Future<void> _toggleReminder() async {
           .eq('ann_id', widget.announcement.annId)
           .maybeSingle();
 
-      // 2️⃣ Delete from Google Calendar if event ID exists
       if (reminderData != null && reminderData['google_event_id'] != null) {
         try {
           await GoogleCalendarService.deleteEvent(
@@ -74,14 +71,22 @@ Future<void> _toggleReminder() async {
         }
       }
 
-      // 3️⃣ Delete from database
       await supabase
           .from('announcement_reminders')
           .delete()
           .eq('user_id', widget.currentUserId)
           .eq('ann_id', widget.announcement.annId);
 
-      if (mounted) setState(() => _isAdded = false);
+      if (mounted) {
+        setState(() => _isAdded = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text("Reminder removed ✓"),
+            backgroundColor: Colors.green,
+            duration: Duration(seconds: 2),
+          ),
+        );
+      }
       
     } else {
       // ➕ ADD
@@ -93,9 +98,15 @@ Future<void> _toggleReminder() async {
         startDate: widget.announcement.eventDateTime,
         endDate: widget.announcement.eventDateTime.add(const Duration(hours: 1)),
       );
-      await Add2Calendar.addEvent2Cal(event);
+      
+      try {
+        await Add2Calendar.addEvent2Cal(event);
+      } catch (e) {
+        debugPrint("Native calendar error: $e");
+        // Don't fail if native calendar fails
+      }
 
-      // 2️⃣ Google Calendar - Store the event ID
+      // 2️⃣ Google Calendar
       String? googleEventId;
       try {
         googleEventId = await GoogleCalendarService.addEvent(
@@ -104,32 +115,52 @@ Future<void> _toggleReminder() async {
           startTime: widget.announcement.eventDateTime,
           endTime: widget.announcement.eventDateTime.add(const Duration(hours: 1)),
         );
+        debugPrint("✅ Google Event ID: $googleEventId");
       } catch (e) {
-        debugPrint("Google Calendar error: $e");
+        debugPrint("❌ Google Calendar error: $e");
+        // Continue even if Google Calendar fails
       }
 
-      // 3️⃣ Save to database WITH Google event ID
+      // 3️⃣ Save to database (DON'T include 'id' - let it auto-generate)
+      debugPrint("📤 Inserting reminder for user ${widget.currentUserId}, ann ${widget.announcement.annId}");
+      
       await supabase.from('announcement_reminders').insert({
         'user_id': widget.currentUserId,
         'ann_id': widget.announcement.annId,
-        'google_event_id': googleEventId, // 🔑 Store this!
+        'google_event_id': googleEventId,
       });
 
-      if (mounted) setState(() => _isAdded = true);
+      debugPrint("✅ Reminder saved to database");
+
+      if (mounted) {
+        setState(() => _isAdded = true);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text("Reminder added ✓"),
+            backgroundColor: Colors.green,
+            duration: Duration(seconds: 2),
+          ),
+        );
+      }
     }
-  } catch (e) {
+  } catch (e, stackTrace) {
+    debugPrint("❌ ERROR: $e");
+    debugPrint("📍 Stack: $stackTrace");
+    
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text("Something went wrong"),
+        SnackBar(
+          content: Text("Error: ${e.toString()}"),
           backgroundColor: Colors.red,
+          duration: const Duration(seconds: 5),
         ),
       );
     }
   } finally {
     if (mounted) setState(() => _loading = false);
   }
-}
+} 
+ 
   @override
   Widget build(BuildContext context) {
     return Container(

@@ -557,80 +557,91 @@ class _CommentsPageState extends State<CommentsPage> {
   // ================================================
   // POST CARD (with action bar: like, comment, repost)
   // ================================================
-  Widget _buildPostCard(PostModel p) {
-    final authorName = _usernameFor(p.authorId);
-    final avatar = _avatarFor(p.authorId);
-    final commentCount = _allComments.length;
+ // ================================================
+// POST CARD (Updated to match Profile Page UI)
+// ================================================
+Widget _buildPostCard(PostModel p) {
+  final authorName = _usernameFor(p.authorId);
+  final avatar = _avatarFor(p.authorId);
+  final commentCount = _allComments.length;
 
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 8),
-        ],
-      ),
+  return Card(
+    margin: const EdgeInsets.only(bottom: 16),
+    elevation: 0,
+    shape: RoundedRectangleBorder(
+      borderRadius: BorderRadius.circular(16),
+    ),
+    child: Padding(
+      padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // HEADER
+          // USER INFO HEADER
           Row(
             children: [
               CircleAvatar(
+                radius: 20,
+                backgroundColor: Colors.grey[200],
                 backgroundImage: avatar != null ? NetworkImage(avatar) : null,
-                child: avatar == null ? const Icon(Icons.person) : null,
+                child: avatar == null
+                    ? const Icon(Icons.person, size: 20)
+                    : null,
               ),
-
               const SizedBox(width: 12),
-
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
                       authorName,
-                      style: const TextStyle(fontWeight: FontWeight.bold),
+                      style: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
                     Text(
                       _timeAgo(p.createdAt),
-                      style:
-                          TextStyle(color: Colors.grey.shade600, fontSize: 12),
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.grey[600],
+                      ),
                     ),
                   ],
                 ),
               ),
+              // SAVE/BOOKMARK BUTTON
+              Consumer<SavedPostProvider>(
+                builder: (context, savedProvider, _) {
+                  final isSaved = savedProvider.isSaved(p.postId);
+                  return IconButton(
+                    icon: Icon(
+                      isSaved ? Icons.bookmark : Icons.bookmark_border,
+                      color: isSaved ? const Color(0xFFDC143C) : Colors.grey,
+                      size: 24,
+                    ),
+                    onPressed: () async {
+                      await savedProvider.toggleSave(
+                        userId: widget.currentUserId,
+                        postId: p.postId,
+                      );
+                    },
+                  );
+                },
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
 
-              // optional top-right actions (save/bookmark)
-             Consumer<SavedPostProvider>(
-  builder: (context, savedProvider, _) {
-    final isSaved = savedProvider.isSaved(p.postId);
-
-    return IconButton(
-      icon: Icon(
-        isSaved
-            ? Icons.bookmark
-            : Icons.bookmark_border_rounded,
-        color: isSaved ? Colors.red : Colors.grey,
-        size: 22,
-      ),
-      onPressed: () async {
-        await savedProvider.toggleSave(
-          userId: widget.currentUserId,
-          postId: p.postId,
-        );
-      },
-    );
-  },
-),
- ],
+          // POST CONTENT
+          Text(
+            p.content,
+            style: TextStyle(
+              fontSize: 14,
+              color: Colors.grey[800],
+            ),
           ),
 
-          const SizedBox(height: 12),
-          Text(p.content),
-
-          const SizedBox(height: 10),
-
+          // TAGS
           FutureBuilder<List<TagModel>>(
             future: supabase
                 .from('tags')
@@ -643,140 +654,182 @@ class _CommentsPageState extends State<CommentsPage> {
                 return const SizedBox();
               }
 
-              return Wrap(
-                spacing: 6,
-                children: snap.data!.map((tag) {
-                  return Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-                    decoration: BoxDecoration(
-                      color: Colors.red.withOpacity(0.08),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Text(
-                      "#${tag.tagName}",
-                      style: const TextStyle(color: Colors.red),
-                    ),
-                  );
-                }).toList(),
+              return Padding(
+                padding: const EdgeInsets.only(top: 10, bottom: 10),
+                child: Wrap(
+                  spacing: 6,
+                  runSpacing: 6,
+                  children: snap.data!.map((tag) {
+                    return Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 6,
+                      ),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFDC143C).withOpacity(0.10),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Text(
+                        "#${tag.tagName}",
+                        style: const TextStyle(
+                          color: Color(0xFFDC143C),
+                          fontSize: 13,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    );
+                  }).toList(),
+                ),
               );
             },
           ),
 
-          if (p.mediaUrl != null && p.mediaUrl!.isNotEmpty)
-            Padding(
-              padding: const EdgeInsets.only(top: 12),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(12),
-                child: Image.network(
-                  p.mediaUrl!,
-                  height: 160,
-                  width: double.infinity,
-                  fit: BoxFit.cover,
-                ),
+          // POST IMAGE
+          if (p.mediaUrl != null && p.mediaUrl!.toString().trim().isNotEmpty) ...[
+            const SizedBox(height: 12),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(12),
+              child: Image.network(
+                p.mediaUrl!,
+                width: double.infinity,
+                fit: BoxFit.cover,
+                errorBuilder: (context, error, stackTrace) {
+                  return const SizedBox.shrink();
+                },
+                loadingBuilder: (context, child, loadingProgress) {
+                  if (loadingProgress == null) return child;
+                  return Container(
+                    height: 200,
+                    color: Colors.grey[100],
+                    child: const Center(
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    ),
+                  );
+                },
               ),
             ),
+          ],
 
-          const SizedBox(height: 14),
+          const SizedBox(height: 12),
+          Divider(height: 1, color: Colors.grey[300]),
+          const SizedBox(height: 8),
 
-          // ACTION BAR (uses PostProvider for post-like and RepostProvider for reposts)
+          // INTERACTION STATS
+          Consumer<PostProvider>(
+            builder: (context, postProvider, _) {
+              return Consumer<RepostProvider>(
+                builder: (context, repostProvider, _) {
+                  final likeCount = postProvider.postLikeCounts[p.postId] ?? 0;
+                  final repostCount = repostProvider.getRepostCount(p.postId);
+
+                  return Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      if (likeCount > 0)
+                        Row(
+                          children: [
+                            const Icon(
+                              Icons.favorite,
+                              color: Color(0xFFDC143C),
+                              size: 18,
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              '$likeCount',
+                              style: TextStyle(
+                                fontSize: 13,
+                                color: Colors.grey[700],
+                              ),
+                            ),
+                          ],
+                        )
+                      else
+                        const SizedBox(),
+                      Text(
+                        '$commentCount comment${commentCount != 1 ? 's' : ''} · $repostCount repost${repostCount != 1 ? 's' : ''}',
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: Colors.grey[600],
+                          fontWeight: FontWeight.w400,
+                        ),
+                      ),
+                    ],
+                  );
+                },
+              );
+            },
+          ),
+
+          const SizedBox(height: 8),
+          Divider(height: 1, color: Colors.grey[300]),
+
+          // ACTION BUTTONS
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
-              // LIKE (uses provider)
+              // LIKE BUTTON
               Consumer<PostProvider>(
                 builder: (context, provider, _) {
-                  final likeCount = provider.postLikeCounts[p.postId] ?? 0;
                   final liked = provider.likedByMe.contains(p.postId);
-
-                  return GestureDetector(
-                    onTap: () => provider.togglePostLike(p.postId),
-                    child: Row(
-                      children: [
-                        Icon(
-                          liked
-                              ? Icons.thumb_up_alt
-                              : Icons.thumb_up_alt_outlined,
-                          size: 20,
-                          color: liked ? Colors.red : Colors.grey.shade700,
-                        ),
-                        const SizedBox(width: 8),
-                        Text(
-                          '$likeCount',
-                          style: TextStyle(
-                            fontWeight: FontWeight.w600,
-                            color:
-                                liked ? Colors.red : Colors.grey.shade800,
-                          ),
-                        ),
-                        const SizedBox(width: 6),
-                        Text(
-                          'Like',
-                          style: TextStyle(
-                            color: liked ? Colors.red : Colors.grey.shade600,
-                          ),
-                        ),
-                      ],
+                  return TextButton.icon(
+                    onPressed: () => provider.togglePostLike(p.postId),
+                    icon: Icon(
+                      liked ? Icons.favorite : Icons.favorite_border,
+                      color: liked ? const Color(0xFFDC143C) : Colors.grey[700],
+                      size: 20,
+                    ),
+                    label: Text(
+                      'Like',
+                      style: TextStyle(
+                        color: liked ? const Color(0xFFDC143C) : Colors.grey[700],
+                      ),
                     ),
                   );
                 },
               ),
 
-              // COMMENT (scrolls / no-op here)
-              GestureDetector(
-                onTap: () {
-                  // optionally scroll to comments list or focus input
+              // COMMENT BUTTON
+              TextButton.icon(
+                onPressed: () {
+                  // Scroll to comments or focus input
                 },
-                child: Row(
-                  children: [
-                    Icon(Icons.comment_outlined, size: 20, color: Colors.grey.shade700),
-                    const SizedBox(width: 8),
-                    Text(
-                      '$commentCount',
-                      style: const TextStyle(fontWeight: FontWeight.w600),
-                    ),
-                    const SizedBox(width: 6),
-                    Text('Comment', style: TextStyle(color: Colors.grey.shade600)),
-                  ],
+                icon: Icon(
+                  Icons.comment_outlined,
+                  color: Colors.grey[700],
+                  size: 20,
+                ),
+                label: Text(
+                  'Comment',
+                  style: TextStyle(color: Colors.grey[700]),
                 ),
               ),
 
-              // REPOST (uses RepostProvider)
+              // REPOST BUTTON
               Consumer<RepostProvider>(
                 builder: (context, repostProvider, _) {
                   final isReposted = repostProvider.isReposted(p.postId);
-                  final count = repostProvider.getRepostCount(p.postId);
-                  final color = isReposted ? Colors.red : Colors.grey.shade700;
-
-                  return GestureDetector(
-                    onTap: () async {
+                  return TextButton.icon(
+                    onPressed: () async {
                       try {
                         await repostProvider.toggleRepost(p.postId);
                       } catch (e) {
                         ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('Failed to update repost')),
+                          const SnackBar(
+                            content: Text('Failed to update repost'),
+                          ),
                         );
                       }
                     },
-                    child: Row(
-                      children: [
-                        Icon(Icons.repeat, size: 20, color: color),
-                        const SizedBox(width: 8),
-                        Text(
-                          "$count",
-                          style: TextStyle(
-                            color: color,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                        const SizedBox(width: 6),
-                        Text(
-                          "Repost",
-                          style: TextStyle(
-                            color: isReposted ? Colors.red : Colors.grey.shade600,
-                          ),
-                        ),
-                      ],
+                    icon: Icon(
+                      Icons.repeat,
+                      color: isReposted ? const Color(0xFFDC143C) : Colors.grey[700],
+                      size: 20,
+                    ),
+                    label: Text(
+                      'Repost',
+                      style: TextStyle(
+                        color: isReposted ? const Color(0xFFDC143C) : Colors.grey[700],
+                      ),
                     ),
                   );
                 },
@@ -785,10 +838,9 @@ class _CommentsPageState extends State<CommentsPage> {
           ),
         ],
       ),
-    );
-  }
-
-  // ================================================
+    ),
+  );
+} // ================================================
   // HELPER LOOKUPS
   // ================================================
   String _usernameFor(int userId) => _userNames[userId] ?? 'User';

@@ -945,389 +945,445 @@ if (_showFreelancingHub) ...[
     if (mounted) setState(fn);
   }
 
-  Widget _feedCard(PostModel post) {
-    return FutureBuilder<Map<String, dynamic>?>(
-      future: UserController.fetchUserData(post.authorId),
-      builder: (context, snapshot) {
-        if (!snapshot.hasData) {
-          return const SizedBox(
-            height: 100,
-            child: Center(child: CircularProgressIndicator()),
-          );
-        }
+Widget _feedCard(PostModel post) {
+  return FutureBuilder<Map<String, dynamic>?>(
+    future: UserController.fetchUserData(post.authorId),
+    builder: (context, snapshot) {
+      if (!snapshot.hasData) {
+        return const SizedBox(
+          height: 100,
+          child: Center(child: CircularProgressIndicator()),
+        );
+      }
 
-        final user = snapshot.data!;
-        final userName = user["name"] ?? "User";
-        final avatar = user["profile_image"];
+      final user = snapshot.data!;
+      final userName = user["name"] ?? "User";
+      final avatar = user["profile_image"];
+      final userRole = user["role"];
+      final userDept = user["department"];
 
-        return FutureBuilder<bool>(
-          future: _areFriends(widget.currentUserId, post.authorId),
-          builder: (context, friendSnapshot) {
-            final isFriend = friendSnapshot.data ?? false;
+      return FutureBuilder<bool>(
+        future: _areFriends(widget.currentUserId, post.authorId),
+        builder: (context, friendSnapshot) {
+          final isFriend = friendSnapshot.data ?? false;
 
-            if (!_commentCounts.containsKey(post.postId)) {
-              _ensureCommentCount(post.postId);
-            }
+          if (!_commentCounts.containsKey(post.postId)) {
+            _ensureCommentCount(post.postId);
+          }
 
-            return Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // ✅ REPOST INDICATOR (only in For You mode)
-                if (_showForYou && _cachedFriendIds.isNotEmpty)
-                  Consumer<RepostProvider>(
-                    builder: (context, repostProvider, _) {
-                      return FutureBuilder<List<Map<String, dynamic>>>(
-                        future: repostProvider.getRepostedByFriends(
-                          post.postId,
-                          _cachedFriendIds,
-                        ),
-                        builder: (context, repostSnapshot) {
-                          if (!repostSnapshot.hasData ||
-                              repostSnapshot.data!.isEmpty) {
-                            return const SizedBox();
-                          }
+          return StatefulBuilder(
+            builder: (context, setCardState) {
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // REPOST INDICATOR (only in For You mode)
+                  if (_showForYou && _cachedFriendIds.isNotEmpty)
+                    Consumer<RepostProvider>(
+                      builder: (context, repostProvider, _) {
+                        return FutureBuilder<List<Map<String, dynamic>>>(
+                          future: repostProvider.getRepostedByFriends(
+                            post.postId,
+                            _cachedFriendIds,
+                          ),
+                          builder: (context, repostSnapshot) {
+                            if (!repostSnapshot.hasData ||
+                                repostSnapshot.data!.isEmpty) {
+                              return const SizedBox();
+                            }
 
-                          final friends = repostSnapshot.data!;
+                            final friends = repostSnapshot.data!;
+                            final names = friends
+                                .take(3)
+                                .map((f) => f['name'])
+                                .where((n) => n != null)
+                                .join(', ');
+                            final othersCount = friends.length > 3
+                                ? friends.length - 3
+                                : 0;
 
-                          final names = friends
-                              .take(3)
-                              .map((f) => f['name'])
-                              .where((n) => n != null)
-                              .join(', ');
-
-                          final othersCount = friends.length > 3
-                              ? friends.length - 3
-                              : 0;
-
-                          return Padding(
-                            padding: const EdgeInsets.only(bottom: 6, left: 4),
-                            child: Row(
-                              children: [
-                                const Icon(
-                                  Icons.repeat,
-                                  size: 16,
-                                  color: Colors.grey,
-                                ),
-                                const SizedBox(width: 6),
-                                Text(
-                                  othersCount > 0
-                                      ? "$names and $othersCount others reposted this"
-                                      : "$names reposted this",
-                                  style: const TextStyle(
-                                    fontSize: 12,
+                            return Padding(
+                              padding: const EdgeInsets.only(bottom: 8, left: 4),
+                              child: Row(
+                                children: [
+                                  const Icon(
+                                    Icons.repeat,
+                                    size: 16,
                                     color: Colors.grey,
-                                    fontWeight: FontWeight.w500,
                                   ),
-                                ),
-                              ],
-                            ),
-                          );
-                        },
-                      );
-                    },
-                  ),
+                                  const SizedBox(width: 6),
+                                  Text(
+                                    othersCount > 0
+                                        ? "$names and $othersCount others reposted this"
+                                        : "$names reposted this",
+                                    style: const TextStyle(
+                                      fontSize: 12,
+                                      color: Colors.grey,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            );
+                          },
+                        );
+                      },
+                    ),
 
-                // POST CARD
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
+                  // POST CARD - Using Profile Page Design
+                  Card(
+                    margin: const EdgeInsets.only(bottom: 16),
+                    elevation: 0,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          CircleAvatar(
-                            backgroundImage: avatar != null
-                                ? NetworkImage(avatar)
-                                : null,
-                            child: avatar == null
-                                ? const Icon(Icons.person)
-                                : null,
-                          ),
-                          const SizedBox(width: 10),
-
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  userName,
-                                  style: const TextStyle(
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                                Text(
-                                  timeAgo(post.createdAt),
-                                  style: const TextStyle(
-                                    fontSize: 12,
-                                    color: Colors.grey,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-
-                          // ➕ FOLLOW BUTTON (لو مش Friend)
-                          if (!isFriend &&
-                              post.authorId != widget.currentUserId)
-                            TextButton.icon(
-                              onPressed: () {
-                                _toggleFollow(post.authorId, userName);
-                              },
-                              icon: const Icon(Icons.person_add, size: 18),
-                              label: const Text("Follow"),
-                              style: TextButton.styleFrom(
-                                foregroundColor: Colors.red,
-                                textStyle: const TextStyle(
-                                  fontWeight: FontWeight.w600,
+                          // USER INFO HEADER
+                          Row(
+                            children: [
+                              CircleAvatar(
+                                radius: 20,
+                                backgroundColor: Colors.grey[200],
+                                backgroundImage: (avatar != null && avatar.toString().isNotEmpty)
+                                    ? NetworkImage(avatar)
+                                    : null,
+                                child: (avatar == null || avatar.toString().isEmpty)
+                                    ? const Icon(Icons.person)
+                                    : null,
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      userName,
+                                      style: const TextStyle(
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                    Row(
+                                      children: [
+                                        if (userRole != null)
+                                          Text(
+                                            userRole,
+                                            style: TextStyle(
+                                              fontSize: 12,
+                                              color: Colors.grey[600],
+                                            ),
+                                          ),
+                                        if (userRole != null && userDept != null)
+                                          Text(
+                                            ' · ',
+                                            style: TextStyle(color: Colors.grey[600]),
+                                          ),
+                                        if (userDept != null)
+                                          Flexible(
+                                            child: Text(
+                                              userDept,
+                                              style: TextStyle(
+                                                fontSize: 12,
+                                                color: Colors.grey[600],
+                                              ),
+                                              overflow: TextOverflow.ellipsis,
+                                            ),
+                                          ),
+                                      ],
+                                    ),
+                                    Text(
+                                      timeAgo(post.createdAt),
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        color: Colors.grey[600],
+                                      ),
+                                    ),
+                                  ],
                                 ),
                               ),
+                              // FOLLOW BUTTON
+                              if (!isFriend && post.authorId != widget.currentUserId)
+                                TextButton.icon(
+                                  onPressed: () {
+                                    _toggleFollow(post.authorId, userName);
+                                  },
+                                  icon: const Icon(Icons.person_add, size: 18),
+                                  label: const Text("Follow"),
+                                  style: TextButton.styleFrom(
+                                    foregroundColor: const Color(0xFFDC143C),
+                                    textStyle: const TextStyle(
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ),
+                              // SAVE ICON
+                              Consumer<SavedPostProvider>(
+                                builder: (context, savedProvider, _) {
+                                  final isSaved = savedProvider.isSaved(post.postId);
+                                  return IconButton(
+                                    icon: Icon(
+                                      isSaved ? Icons.bookmark : Icons.bookmark_border,
+                                      color: isSaved ? const Color(0xFFDC143C) : Colors.grey,
+                                    ),
+                                    onPressed: () {
+                                      savedProvider.toggleSave(
+                                        userId: widget.currentUserId,
+                                        postId: post.postId,
+                                      );
+                                    },
+                                  );
+                                },
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 12),
+
+                          // POST TITLE (if exists)
+                          if (post.content != null && post.content.isNotEmpty)
+                            Text(
+                              post.content,
+                              style: TextStyle(fontSize: 14, color: Colors.grey[800]),
+                              maxLines: 3,
+                              overflow: TextOverflow.ellipsis,
                             ),
 
-                          // 🔖 SAVE ICON
-                          Consumer<SavedPostProvider>(
-                            builder: (context, savedProvider, _) {
-                              final isSaved = savedProvider.isSaved(
-                                post.postId,
-                              );
+                          // TAGS
+                          FutureBuilder<List<TagModel>>(
+                            future: _fetchTags(post.postId),
+                            builder: (context, tagSnapshot) {
+                              if (!tagSnapshot.hasData || tagSnapshot.data!.isEmpty) {
+                                return const SizedBox();
+                              }
 
-                              return IconButton(
-                                icon: Icon(
-                                  isSaved
-                                      ? Icons.bookmark
-                                      : Icons.bookmark_border,
-                                  color: isSaved ? Colors.red : Colors.grey,
+                              final tags = tagSnapshot.data!;
+                              return Padding(
+                                padding: const EdgeInsets.only(top: 10, bottom: 10),
+                                child: Wrap(
+                                  spacing: 6,
+                                  runSpacing: 6,
+                                  children: tags.map((tag) {
+                                    return Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 8,
+                                        vertical: 6,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: const Color(0xFFDC143C).withOpacity(0.10),
+                                        borderRadius: BorderRadius.circular(12),
+                                      ),
+                                      child: Text(
+                                        "#${tag.tagName}",
+                                        style: const TextStyle(
+                                          color: Color(0xFFDC143C),
+                                          fontSize: 13,
+                                          fontWeight: FontWeight.w500,
+                                        ),
+                                      ),
+                                    );
+                                  }).toList(),
                                 ),
-                                onPressed: () {
-                                  savedProvider.toggleSave(
-                                    userId: widget.currentUserId,
-                                    postId: post.postId,
+                              );
+                            },
+                          ),
+
+                          // POST IMAGE
+                          if (post.mediaUrl != null && post.mediaUrl!.toString().trim().isNotEmpty) ...[
+                            const SizedBox(height: 12),
+                            ClipRRect(
+                              borderRadius: BorderRadius.circular(12),
+                              child: Image.network(
+                                post.mediaUrl!,
+                                width: double.infinity,
+                                fit: BoxFit.cover,
+                                errorBuilder: (context, error, stackTrace) {
+                                  return const SizedBox.shrink();
+                                },
+                                loadingBuilder: (context, child, loadingProgress) {
+                                  if (loadingProgress == null) return child;
+                                  return Container(
+                                    height: 200,
+                                    color: Colors.grey[100],
+                                    child: const Center(
+                                      child: CircularProgressIndicator(strokeWidth: 2),
+                                    ),
+                                  );
+                                },
+                              ),
+                            ),
+                          ],
+
+                          const SizedBox(height: 12),
+                          Divider(height: 1, color: Colors.grey[300]),
+                          const SizedBox(height: 8),
+
+                          // INTERACTION STATS
+                          Consumer<PostProvider>(
+                            builder: (context, postProvider, _) {
+                              return Consumer<RepostProvider>(
+                                builder: (context, repostProvider, _) {
+                                  final likeCount = postProvider.postLikeCounts[post.postId] ?? 0;
+                                  final commentCount = _commentCounts[post.postId] ?? 0;
+                                  final repostCount = repostProvider.getRepostCount(post.postId);
+
+                                  return Row(
+                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      if (likeCount > 0)
+                                        Row(
+                                          children: [
+                                            const Icon(
+                                              Icons.favorite,
+                                              color: Color(0xFFDC143C),
+                                              size: 18,
+                                            ),
+                                            const SizedBox(width: 4),
+                                            Text(
+                                              '$likeCount',
+                                              style: TextStyle(
+                                                fontSize: 13,
+                                                color: Colors.grey[700],
+                                              ),
+                                            ),
+                                          ],
+                                        )
+                                      else
+                                        const SizedBox(),
+                                      Text(
+                                        '$commentCount comment${commentCount != 1 ? 's' : ''} · $repostCount repost${repostCount != 1 ? 's' : ''}',
+                                        style: TextStyle(
+                                          fontSize: 13,
+                                          color: Colors.grey[600],
+                                          fontWeight: FontWeight.w400,
+                                        ),
+                                      ),
+                                    ],
                                   );
                                 },
                               );
                             },
                           ),
-                        ],
-                      ),
-                      const SizedBox(height: 10),
-                      Text(post.content, style: const TextStyle(fontSize: 14)),
-                      const SizedBox(height: 10),
-                      FutureBuilder<List<TagModel>>(
-                        future: _fetchTags(post.postId),
-                        builder: (context, tagSnapshot) {
-                          if (!tagSnapshot.hasData ||
-                              tagSnapshot.data!.isEmpty) {
-                            return const SizedBox();
-                          }
 
-                          final tags = tagSnapshot.data!;
+                          const SizedBox(height: 8),
+                          Divider(height: 1, color: Colors.grey[300]),
 
-                          return Padding(
-                            padding: const EdgeInsets.only(bottom: 10.0),
-                            child: Wrap(
-                              spacing: 6,
-                              runSpacing: 6,
-                              children: [
-                                for (final tag in tags)
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 8,
-                                      vertical: 6,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color: Colors.red.withOpacity(0.10),
-                                      borderRadius: BorderRadius.circular(12),
-                                    ),
-                                    child: Text(
-                                      "#${tag.tagName}",
-                                      style: const TextStyle(
-                                        color: Colors.red,
-                                        fontSize: 13,
-                                        fontWeight: FontWeight.w500,
-                                      ),
-                                    ),
-                                  ),
-                              ],
-                            ),
-                          );
-                        },
-                      ),
-                      if (post.mediaUrl != null &&
-                          post.mediaUrl!.isNotEmpty) ...[
-                        ClipRRect(
-                          borderRadius: BorderRadius.circular(12),
-                          child: Image.network(
-                            post.mediaUrl!,
-                            width: double.infinity,
-                            height: 180,
-                            fit: BoxFit.cover,
-                          ),
-                        ),
-                        const SizedBox(height: 10),
-                      ],
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceAround,
-                        children: [
-                          // LIKE (uses PostProvider)
-                          Consumer<PostProvider>(
-                            builder: (context, provider, _) {
-                              final likeCount =
-                                  provider.postLikeCounts[post.postId] ?? 0;
-                              final liked = provider.likedByMe.contains(
-                                post.postId,
-                              );
-
-                              return GestureDetector(
-                                onTap: () =>
-                                    provider.togglePostLike(post.postId),
-                                child: Row(
-                                  children: [
-                                    Icon(
-                                      liked
-                                          ? Icons.thumb_up_alt
-                                          : Icons.thumb_up_alt_outlined,
+                          // ACTION BUTTONS
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceAround,
+                            children: [
+                              // LIKE BUTTON
+                              Consumer<PostProvider>(
+                                builder: (context, provider, _) {
+                                  final liked = provider.likedByMe.contains(post.postId);
+                                  return TextButton.icon(
+                                    onPressed: () {
+                                      provider.togglePostLike(post.postId);
+                                      setCardState(() {});
+                                    },
+                                    icon: Icon(
+                                      liked ? Icons.favorite : Icons.favorite_border,
+                                      color: liked ? const Color(0xFFDC143C) : Colors.grey[700],
                                       size: 20,
-                                      color: liked
-                                          ? Colors.red
-                                          : Colors.grey[700],
                                     ),
-                                    const SizedBox(width: 6),
-                                    Text(
-                                      "$likeCount",
+                                    label: Text(
+                                      'Like',
                                       style: TextStyle(
-                                        color: liked
-                                            ? Colors.red
-                                            : Colors.grey[700],
-                                        fontWeight: FontWeight.w600,
+                                        color: liked ? const Color(0xFFDC143C) : Colors.grey[700],
                                       ),
                                     ),
-                                    const SizedBox(width: 6),
-                                    Text(
-                                      "Like",
-                                      style: TextStyle(
-                                        color: liked
-                                            ? Colors.red
-                                            : Colors.grey[600],
+                                  );
+                                },
+                              ),
+
+                              // COMMENT BUTTON
+                              TextButton.icon(
+                                onPressed: () {
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (context) => CommentsPage(
+                                        postId: post.postId,
+                                        currentUserId: widget.currentUserId,
                                       ),
                                     ),
-                                  ],
-                                ),
-                              );
-                            },
-                          ),
+                                  ).then((_) {
+                                    setStateIfMounted(() {
+                                      _commentCounts.remove(post.postId);
+                                    });
+                                    _ensureCommentCount(post.postId);
 
-                          // COMMENT
-                          _postAction(
-                            Icons.comment_outlined,
-                            "Comment",
-                            () {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (context) => CommentsPage(
-                                    postId: post.postId,
-                                    currentUserId: widget.currentUserId,
-                                  ),
-                                ),
-                              ).then((_) {
-                                setStateIfMounted(() {
-                                  _commentCounts.remove(post.postId);
-                                });
-                                _ensureCommentCount(post.postId);
-
-                                final postProvider = Provider.of<PostProvider>(
-                                  context,
-                                  listen: false,
-                                );
-                                final repostProvider =
-                                    Provider.of<RepostProvider>(
+                                    final postProvider = Provider.of<PostProvider>(
+                                      context,
+                                      listen: false,
+                                    );
+                                    final repostProvider = Provider.of<RepostProvider>(
                                       context,
                                       listen: false,
                                     );
 
-                                postProvider.loadPostLikes(post.postId);
-                                repostProvider.loadRepostData(post.postId);
-                              });
-                            },
-                            count: _commentCounts[post.postId] ?? 0,
-                          ),
-
-                          // REPOST (uses RepostProvider)
-                          Consumer<RepostProvider>(
-                            builder: (context, repostProvider, _) {
-                              final isReposted = repostProvider.isReposted(
-                                post.postId,
-                              );
-                              final count = repostProvider.getRepostCount(
-                                post.postId,
-                              );
-
-                              return GestureDetector(
-                                onTap: () async {
-                                  try {
-                                    await repostProvider.toggleRepost(
-                                      post.postId,
-                                    );
-                                  } catch (e) {
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      const SnackBar(
-                                        content: Text(
-                                          'Failed to update repost',
-                                        ),
-                                      ),
-                                    );
-                                  }
+                                    postProvider.loadPostLikes(post.postId);
+                                    repostProvider.loadRepostData(post.postId);
+                                  });
                                 },
-                                child: Row(
-                                  children: [
-                                    Icon(
-                                      Icons.repeat,
-                                      size: 20,
-                                      color: isReposted
-                                          ? Colors.red
-                                          : Colors.grey[600],
-                                    ),
-                                    const SizedBox(width: 6),
-                                    Text(
-                                      "$count",
-                                      style: TextStyle(
-                                        color: isReposted
-                                            ? Colors.red
-                                            : Colors.grey[700],
-                                        fontWeight: FontWeight.w600,
-                                      ),
-                                    ),
-                                    const SizedBox(width: 4),
-                                    Text(
-                                      "Repost",
-                                      style: TextStyle(
-                                        color: isReposted
-                                            ? Colors.red
-                                            : Colors.grey[600],
-                                      ),
-                                    ),
-                                  ],
+                                icon: Icon(
+                                  Icons.comment_outlined,
+                                  color: Colors.grey[700],
+                                  size: 20,
                                 ),
-                              );
-                            },
+                                label: Text(
+                                  'Comment',
+                                  style: TextStyle(color: Colors.grey[700]),
+                                ),
+                              ),
+
+                              // REPOST BUTTON
+                              Consumer<RepostProvider>(
+                                builder: (context, repostProvider, _) {
+                                  final isReposted = repostProvider.isReposted(post.postId);
+                                  return TextButton.icon(
+                                    onPressed: () async {
+                                      try {
+                                        await repostProvider.toggleRepost(post.postId);
+                                        setCardState(() {});
+                                      } catch (e) {
+                                        ScaffoldMessenger.of(context).showSnackBar(
+                                          const SnackBar(
+                                            content: Text('Failed to update repost'),
+                                          ),
+                                        );
+                                      }
+                                    },
+                                    icon: Icon(
+                                      Icons.repeat,
+                                      color: isReposted ? const Color(0xFFDC143C) : Colors.grey[700],
+                                      size: 20,
+                                    ),
+                                    label: Text(
+                                      'Repost',
+                                      style: TextStyle(
+                                        color: isReposted ? const Color(0xFFDC143C) : Colors.grey[700],
+                                      ),
+                                    ),
+                                  );
+                                },
+                              ),
+                            ],
                           ),
                         ],
                       ),
-                    ],
+                    ),
                   ),
-                ),
-              ],
-            );
-          },
-        );
-      },
-    );
-  }
-
+                ],
+              );
+            },
+          );
+        },
+      );
+    },
+  );
+}
   Widget _postAction(
     IconData icon,
     String label,
@@ -1421,16 +1477,17 @@ if (_showFreelancingHub) ...[
     );
   }
 
-String timeAgo(DateTime date) {
-  final now = DateTime.now();
-  final localDate = date.toLocal(); // Add this line
-  final diff = now.difference(localDate); // Use localDate instead of date
+String timeAgo(DateTime createdAtUtc) {
+  final now = DateTime.now().toUtc();
+  final diff = now.difference(createdAtUtc);
 
-  if (diff.inMinutes < 60) return "${diff.inMinutes} minutes ago";
-  if (diff.inHours < 24) return "${diff.inHours} hours ago";
-  if (diff.inDays < 7) return "${diff.inDays} days ago";
+  if (diff.inMinutes < 1) return "Just now";
+  if (diff.inMinutes < 60) return "${diff.inMinutes} min ago";
+  if (diff.inHours < 24) return "${diff.inHours} h ago";
+  if (diff.inDays < 7) return "${diff.inDays} d ago";
 
   final weeks = (diff.inDays / 7).floor();
   return "$weeks week${weeks > 1 ? 's' : ''} ago";
 }
+
 }

@@ -319,7 +319,6 @@ class _CategorySelectionModalState extends State<CategorySelectionModal>
           'file_url': attachedFileUrl,
           'category_id': _selectedCategory!['category_id'],
           'title': _selectedCategory!['name'],
-          'created_at': DateTime.now().toIso8601String(),
         };
 
         await supabase.from('posts').insert(postData);

@@ -32,7 +32,7 @@ class AnnouncementModel {
       title: map['title'],
       description: map['description'],
       eventDateTime: eventDateTime,
-      createdAt: DateTime.parse(map['created_at']),
+      createdAt: DateTime.parse(map['created_at']).toLocal(),
       categoryId: map['category_id'],
     );
   }

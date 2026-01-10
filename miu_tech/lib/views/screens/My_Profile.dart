@@ -5883,14 +5883,13 @@ class _PostDetailsScreenState extends State<PostDetailsScreen> {
   }
 
 String _formatDate(dynamic date) {
-  if (date == null) return 'Just now';
+  if (date == null) return 'Present';
   try {
-    // Parse as UTC and convert to local time
-    final DateTime dt = DateTime.parse(date.toString()).toLocal();
+    final DateTime dt = DateTime.parse(date.toString()).toLocal(); // ✅ Convert to local
     final now = DateTime.now();
     final difference = now.difference(dt);
 
-    // Handle future dates (clock skew)
+    // Handle future dates
     if (difference.isNegative) {
       return 'Just now';
     }
@@ -5909,10 +5908,10 @@ String _formatDate(dynamic date) {
       return '${dt.day}/${dt.month}/${dt.year}';
     }
   } catch (e) {
-    print('Error formatting date: $e');
     return 'Just now';
   }
 }
+
   Future<bool> _isCommentLiked(int commentId) async {
     final result = await supabase
         .from('comment_likes')

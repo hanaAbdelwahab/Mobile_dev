@@ -28,7 +28,7 @@ class CompetitionRequestModel {
       description: map['description'] ?? '',
       neededSkills: map['needed_skills'] ?? '',
       teamSize: map['team_size'] ?? 0,
-      createdAt: DateTime.parse(map['created_at']),
+      createdAt: DateTime.parse(map['created_at']).toLocal(),
     );
   }
 }
