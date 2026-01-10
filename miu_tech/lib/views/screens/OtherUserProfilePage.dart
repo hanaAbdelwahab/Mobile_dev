@@ -105,7 +105,6 @@ Future<void> fetchCurrentUserData() async {
       return;
     }
 
-    // FIX: Use correct column names
     final userData = await supabase
         .from('users')
         .select('name, profile_image')
@@ -117,53 +116,48 @@ Future<void> fetchCurrentUserData() async {
       currentUserProfileUrl = userData['profile_image'];
     });
 
-    print('✅ Current user loaded: $currentUsername');
+    print('✅ Current user loaded: $currentUsername (ID: $mockCurrentUserId)');
   } catch (e) {
     print('⚠️ Error fetching current user data: $e');
     setState(() {
       currentUsername = 'Someone';
     });
   }
-}
-  @override
+}@override
   void dispose() {
     _activityTabController.dispose(); // ✅ DISPOSE TAB CONTROLLER
     _animationController.dispose();
     super.dispose();
   }
+Future<void> createNotification({
+  required String type,
+  required String title,
+  required String message,
+  String? postId,
+}) async {
+  try {
+    final username = currentUsername ?? 'Someone';
 
-   Future<void> createNotification({
-    required String type,
-    required String title,
-    required String message,
-    required String icon,
-    String? postId,
-  }) async {
-    try {
-      final username = currentUsername ?? 'Someone';
+    final notificationData = {
+      'user_id': int.parse(widget.userId),
+      'type': type,
+      'title': title, // ✅ INCLUDE TITLE
+      'body': message.replaceAll('null', username),
+      'is_read': false,
+      'created_at': DateTime.now().toIso8601String(),
+      'from_user_id': int.parse(mockCurrentUserId),
+    };
 
-      final notificationData = {
-        'user_id': widget.userId,
-        'actor_id': mockCurrentUserId,
-        'type': type,
-        'title': title,
-        'message': message.replaceAll('null', username),
-        'icon': icon,
-        'is_read': false,
-        'profile_url': currentUserProfileUrl,
-      };
+    print('📤 Creating notification: $notificationData');
+    
+    final result = await supabase.from('notifications').insert(notificationData).select();
 
-      if (type == 'follow_request') {
-        notificationData['status'] = null;
-      }
-
-      await supabase.from('notifications').insert(notificationData);
-
-      print('✅ Notification created: $type - $message');
-    } catch (e) {
-      print('❌ Error creating notification: $e');
-    }
+    print('✅ Notification created successfully: $result');
+  } catch (e) {
+    print('❌ Error creating notification: $e');
+    print('Stack trace: ${StackTrace.current}');
   }
+}
 
 Future<void> checkIfFollowing() async {
   try {
@@ -231,71 +225,153 @@ Future<void> fetchFollowerCounts() async {
 }
 Future<void> toggleFollow() async {
   try {
-    final friendshipData = await _checkFollowStatus();
-    final bool isPending = friendshipData?['status'] == 'pending';
-    final bool isSentByMe = friendshipData?['user_id'] == int.parse(mockCurrentUserId);
+    print('🔄 Toggle follow called');
+    
+    // Check if already friends (accepted friendship)
+    final existingFriendship = await supabase
+        .from('friendships')
+        .select()
+        .or('and(user_id.eq.${int.parse(mockCurrentUserId)},friend_id.eq.${int.parse(widget.userId)}),and(user_id.eq.${int.parse(widget.userId)},friend_id.eq.${int.parse(mockCurrentUserId)})')
+        .maybeSingle();
 
-    if (isFollowing) {
-      // Unfollow: delete accepted friendship
-      await supabase.from('friendships').delete().or(
-        'and(user_id.eq.${int.parse(mockCurrentUserId)},friend_id.eq.${int.parse(widget.userId)}),and(user_id.eq.${int.parse(widget.userId)},friend_id.eq.${int.parse(mockCurrentUserId)})'
-      );
-      
-      print('✅ Unfollowed');
-      setState(() => isFollowing = false);
-    } else if (isPending && isSentByMe) {
-      // ✅ NEW: Cancel pending request
-      await supabase.from('friendships').delete()
-        .eq('user_id', int.parse(mockCurrentUserId))
-        .eq('friend_id', int.parse(widget.userId))
-        .eq('status', 'pending');
-      
-      print('✅ Cancelled follow request');
-      setState(() {}); // Refresh UI
-    } else {
-      // Follow/Send friend request
-      final existingRequest = await supabase
+    if (existingFriendship != null) {
+      print('✅ Already friends, unfollowing...');
+      // Unfollow: delete the friendship
+      await supabase
           .from('friendships')
-          .select()
-          .eq('user_id', int.parse(widget.userId))
-          .eq('friend_id', int.parse(mockCurrentUserId))
-          .eq('status', 'pending')
-          .maybeSingle();
+          .delete()
+          .or('and(user_id.eq.${int.parse(mockCurrentUserId)},friend_id.eq.${int.parse(widget.userId)}),and(user_id.eq.${int.parse(widget.userId)},friend_id.eq.${int.parse(mockCurrentUserId)})');
+      
+      setState(() => isFollowing = false);
+      await fetchFollowerCounts();
+      _showSuccess('Unfollowed successfully');
+      return;
+    }
 
-      if (existingRequest != null) {
-        // Accept their request
+    // Check for ANY existing request (regardless of status) sent by me
+    final myExistingRequest = await supabase
+        .from('friendship_requests')
+        .select()
+        .eq('requester_id', int.parse(mockCurrentUserId))
+        .eq('receiver_id', int.parse(widget.userId))
+        .maybeSingle();
+
+    if (myExistingRequest != null) {
+      print('📋 Found my existing request: ${myExistingRequest}');
+      
+      if (myExistingRequest['status'] == 'pending') {
+        // Cancel pending request
+        print('🚫 Cancelling my pending request...');
         await supabase
-            .from('friendships')
-            .update({'status': 'accepted', 'updated_at': DateTime.now().toIso8601String()})
-            .eq('friendship_id', existingRequest['friendship_id']);
+            .from('friendship_requests')
+            .delete()
+            .eq('request_id', myExistingRequest['request_id']);
         
-        setState(() => isFollowing = true);
-        print('✅ Accepted friend request');
+        // Delete the notification
+        await supabase
+            .from('notifications')
+            .delete()
+            .eq('user_id', int.parse(widget.userId))
+            .eq('from_user_id', int.parse(mockCurrentUserId))
+            .eq('type', 'follow_request');
+        
+        setState(() {});
+        _showSuccess('Request cancelled');
+        return;
       } else {
-        // Create new friend request
-        await supabase.from('friendships').insert({
-          'user_id': int.parse(mockCurrentUserId),
-          'friend_id': int.parse(widget.userId),
-          'status': 'pending',
-          'created_at': DateTime.now().toIso8601String(),
-        });
-
-        final username = currentUsername ?? 'Someone';
-
-        await createNotification(
-          type: 'follow_request',
-          title: 'New Follow Request',
-          message: '$username wants to follow you',
-          icon: 'person_add',
-        );
-
-        print('✅ Follow request sent');
+        // If rejected or accepted, delete it so we can send a new one
+        print('🔄 Deleting old request with status: ${myExistingRequest['status']}');
+        await supabase
+            .from('friendship_requests')
+            .delete()
+            .eq('request_id', myExistingRequest['request_id']);
+        // Continue to send new request below
       }
     }
 
-    await fetchFollowerCounts();
+    // Check for request from them
+    final theirRequest = await supabase
+        .from('friendship_requests')
+        .select()
+        .eq('requester_id', int.parse(widget.userId))
+        .eq('receiver_id', int.parse(mockCurrentUserId))
+        .eq('status', 'pending')
+        .maybeSingle();
+
+    if (theirRequest != null) {
+      print('✅ Accepting their request...');
+      
+      // Update request to accepted
+      await supabase
+          .from('friendship_requests')
+          .update({
+            'status': 'accepted',
+            'updated_at': DateTime.now().toIso8601String()
+          })
+          .eq('request_id', theirRequest['request_id']);
+      
+      // Add to friendships table
+      await supabase.from('friendships').insert({
+        'user_id': int.parse(mockCurrentUserId),
+        'friend_id': int.parse(widget.userId),
+        'status': 'accepted',
+      });
+      
+      // Delete the request notification
+      await supabase
+          .from('notifications')
+          .delete()
+          .eq('user_id', int.parse(mockCurrentUserId))
+          .eq('from_user_id', int.parse(widget.userId))
+          .eq('type', 'follow_request');
+
+      // Send acceptance notification
+await supabase.from('notifications').insert({
+  'user_id': int.parse(widget.userId),
+  'type': 'follow_accepted',
+  'title': 'Friend Request Accepted',
+  'body': '${currentUsername ?? 'Someone'} accepted your follow request, you are now friends!!',
+  'is_read': false,
+  'from_user_id': int.parse(mockCurrentUserId),
+});
+      
+      setState(() => isFollowing = true);
+      await fetchFollowerCounts();
+      _showSuccess('Friend request accepted!');
+      return;
+    }
+
+    // No existing relationship - send new friend request
+    print('📝 Creating new friend request from $mockCurrentUserId to ${widget.userId}');
+    
+   // Create friendship request
+final insertedRequest = await supabase.from('friendship_requests').insert({
+  'requester_id': int.parse(mockCurrentUserId),
+  'receiver_id': int.parse(widget.userId),
+  'status': 'pending',
+}).select();
+
+    print('✅ Request created: $insertedRequest');
+
+    // Create notification
+final insertedNotification = await supabase.from('notifications').insert({
+  'user_id': int.parse(widget.userId),
+  'type': 'follow_request',
+  'title': 'New Follow Request',
+  'body': '${currentUsername ?? 'Someone'} wants to follow you',
+  'is_read': false,
+  'from_user_id': int.parse(mockCurrentUserId),
+}).select();
+
+    print('✅ Notification created: $insertedNotification');
+
+    setState(() {});
+    _showSuccess('Follow request sent!');
+
   } catch (e) {
     print("❌ Error toggling follow: $e");
+    print("Stack trace: ${StackTrace.current}");
+    _showError('Failed to process request. Please try again.');
   }
 }
 
@@ -396,36 +472,7 @@ Future<void> fetchUserAndPosts() async {
     await checkIfFollowing();
     await fetchFollowerCounts();
 
-    // Load skill endorsements if skills exist
-    if (skillsList.isNotEmpty) {
-      final Map<String, bool> endorsementStatus = {};
 
-      for (var skill in skillsList) {
-        final skillName = skill['name'];
-        if (skillName != null) {
-          try {
-            final endorsement = await supabase
-                .from('skill_endorsements')
-                .select()
-                .eq('skill_name', skillName)
-                .eq('endorsed_user_id', int.parse(widget.userId))
-                .eq('endorser_user_id', int.parse(mockCurrentUserId))
-                .maybeSingle();
-
-            endorsementStatus[skillName] = endorsement != null;
-          } catch (e) {
-            print('⚠️ Error checking endorsement for $skillName: $e');
-            endorsementStatus[skillName] = false;
-          }
-        }
-      }
-
-      setState(() {
-        endorsedSkills = endorsementStatus;
-      });
-
-      print('✅ Loaded endorsement status: $endorsedSkills');
-    }
 
     _animationController.forward();
   } catch (e, stackTrace) {
@@ -448,34 +495,60 @@ Future<void> fetchUserAndPosts() async {
     });
   }
 }
-
 Future<Map<String, dynamic>?> _checkFollowStatus() async {
   try {
-    // Check if current user sent request to viewing user
-    final sentRequest = await supabase
+    // Check if already friends
+    final friendship = await supabase
         .from('friendships')
         .select()
-        .eq('user_id', int.parse(mockCurrentUserId))
-        .eq('friend_id', int.parse(widget.userId))
+        .or('and(user_id.eq.${int.parse(mockCurrentUserId)},friend_id.eq.${int.parse(widget.userId)}),and(user_id.eq.${int.parse(widget.userId)},friend_id.eq.${int.parse(mockCurrentUserId)})')
         .maybeSingle();
 
-    if (sentRequest != null) return sentRequest;
+    if (friendship != null) {
+      return {'status': 'accepted', 'type': 'friendship'};
+    }
 
-    // Check if viewing user sent request to current user
-    final receivedRequest = await supabase
-        .from('friendships')
+    // Check if I sent a request
+    final myRequest = await supabase
+        .from('friendship_requests')
         .select()
-        .eq('user_id', int.parse(widget.userId))
-        .eq('friend_id', int.parse(mockCurrentUserId))
+        .eq('requester_id', int.parse(mockCurrentUserId))
+        .eq('receiver_id', int.parse(widget.userId))
+        .eq('status', 'pending')
         .maybeSingle();
 
-    return receivedRequest;
+    if (myRequest != null) {
+      return {
+        'status': 'pending',
+        'type': 'sent',
+        'requester_id': int.parse(mockCurrentUserId)
+      };
+    }
+
+    // Check if they sent a request
+    final theirRequest = await supabase
+        .from('friendship_requests')
+        .select()
+        .eq('requester_id', int.parse(widget.userId))
+        .eq('receiver_id', int.parse(mockCurrentUserId))
+        .eq('status', 'pending')
+        .maybeSingle();
+
+    if (theirRequest != null) {
+      return {
+        'status': 'pending',
+        'type': 'received',
+        'requester_id': int.parse(widget.userId)
+      };
+    }
+
+    return null;
   } catch (e) {
     print('⚠️ Error checking follow status: $e');
     return null;
   }
 }
-// ✅ LOAD POSTS (EXACT FROM MYPROFILE)
+
 Future<void> _loadUserPosts() async {
   try {
     List<Map<String, dynamic>> allUserPosts = [];
@@ -680,7 +753,6 @@ Future<void> _loadUserReposts() async {
           type: 'like',
           title: 'New Like',
           message: '$username liked your post',
-          icon: 'favorite',
           postId: postId,
         );
 
@@ -723,7 +795,6 @@ Future<void> _loadUserReposts() async {
           type: 'repost',
           title: 'New Repost',
           message: '$username reposted your post',
-          icon: 'repeat',
           postId: postId,
         );
 
@@ -1350,61 +1421,90 @@ Text(
 
                             const SizedBox(height: 16),
 
-                            // ✅ ACTION BUTTONS - Follow/Unfollow only (no message)
-                            FutureBuilder<Map<String, dynamic>?>(
-                              future: _checkFollowStatus(),
-                              builder: (context, snapshot) {
-                                final friendshipData = snapshot.data;
-                                final bool isPending = friendshipData?['status'] == 'pending';
-                                final bool isAccepted = friendshipData?['status'] == 'accepted';
-                                final bool isSentByMe = friendshipData?['user_id'] == int.parse(mockCurrentUserId);
+// ✅ ACTION BUTTONS - Follow/Unfollow only (no message)
+FutureBuilder<Map<String, dynamic>?>(
+  future: _checkFollowStatus(),
+  builder: (context, snapshot) {
+    // Force rebuild when data changes
+    if (!snapshot.hasData && snapshot.connectionState == ConnectionState.waiting) {
+      return SizedBox(
+        width: double.infinity,
+        child: ElevatedButton.icon(
+          onPressed: null,
+          icon: const SizedBox(
+            width: 18,
+            height: 18,
+            child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+          ),
+          label: const Text('Loading...'),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: Colors.grey[300],
+            foregroundColor: Colors.grey[700],
+            elevation: 0,
+            padding: const EdgeInsets.symmetric(vertical: 12),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(20),
+            ),
+          ),
+        ),
+      );
+    }
 
-                                String buttonText = 'Follow';
-                                IconData buttonIcon = Icons.person_add_outlined;
-                                Color bgColor = const Color(0xFFDC143C);
-                                Color fgColor = Colors.white;
-                                
-                                if (isAccepted) {
-                                  buttonText = 'Following';
-                                  buttonIcon = Icons.check;
-                                  bgColor = Colors.white;
-                                  fgColor = const Color(0xFFDC143C);
-                                } else if (isPending && isSentByMe) {
-                                  buttonText = 'Pending';
-                                  buttonIcon = Icons.schedule;
-                                  bgColor = Colors.grey[300]!;
-                                  fgColor = Colors.grey[700]!;
-                                } else if (isPending && !isSentByMe) {
-                                  buttonText = 'Accept Request';
-                                  buttonIcon = Icons.person_add;
-                                  bgColor = Colors.green;
-                                  fgColor = Colors.white;
-                                }
+final friendshipData = snapshot.data;
+final String? status = friendshipData?['status'];
+final String? type = friendshipData?['type'];
 
-                                return SizedBox(
-                                  width: double.infinity,
-                                  child: ElevatedButton.icon(
-                                    onPressed: toggleFollow,
-                                    icon: Icon(buttonIcon, size: 18),
-                                    label: Text(buttonText),
-                                    style: ElevatedButton.styleFrom(
-                                      backgroundColor: bgColor,
-                                      foregroundColor: fgColor,
-                                      elevation: 0,
-                                      padding: const EdgeInsets.symmetric(vertical: 12),
-                                      shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(20),
-                                        side: (isAccepted || (isPending && isSentByMe))
-                                            ? BorderSide(color: fgColor == const Color(0xFFDC143C) ? const Color(0xFFDC143C) : Colors.grey[400]!, width: 1.5)
-                                            : BorderSide.none,
-                                      ),
-                                    ),
-                                  ),
-                                );
-                              },
-                            ),
+String buttonText = 'Follow';
+IconData buttonIcon = Icons.person_add_outlined;
+Color bgColor = const Color(0xFFDC143C);
+Color fgColor = Colors.white;
+
+if (status == 'accepted') {
+  buttonText = 'Following';
+  buttonIcon = Icons.check;
+  bgColor = Colors.white;
+  fgColor = const Color(0xFFDC143C);
+} else if (status == 'pending' && type == 'sent') {
+  buttonText = 'Pending';
+  buttonIcon = Icons.schedule;
+  bgColor = Colors.grey[300]!;
+  fgColor = Colors.grey[700]!;
+} else if (status == 'pending' && type == 'received') {
+  buttonText = 'Accept Request';
+  buttonIcon = Icons.person_add;
+  bgColor = Colors.green;
+  fgColor = Colors.white;
+}
+
+    return SizedBox(
+      width: double.infinity,
+      child: ElevatedButton.icon(
+        onPressed: () async {
+          await toggleFollow();
+          // Force rebuild after action
+          setState(() {});
+        },
+        icon: Icon(buttonIcon, size: 18),
+        label: Text(buttonText),
+        style: ElevatedButton.styleFrom(
+          backgroundColor: bgColor,
+          foregroundColor: fgColor,
+          elevation: 0,
+          padding: const EdgeInsets.symmetric(vertical: 12),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+            side: (status == 'accepted' || (status == 'pending' && type == 'sent'))
+    ? BorderSide(color: fgColor == const Color(0xFFDC143C) ? const Color(0xFFDC143C) : Colors.grey[400]!, width: 1.5)
+    : BorderSide.none,
+          ),
+        ),
+      ),
+    );
+  },
+),
                           ],
                         ),
+                      
                       ),
                     ],
                   ),
@@ -3959,69 +4059,37 @@ Widget _buildLicensesCard() {
 }
   // ✅ EXACT SKILL ITEM STYLE FROM MYPROFILE WITH ENDORSE BUTTON
 Widget _buildSkillItem(String skillName, String? endorsementInfo) {
-  return FutureBuilder<int>(
-    future: _getSkillEndorsementCount(skillName),
-    builder: (context, snapshot) {
-      final endorsementCount = snapshot.data ?? 0;
-      
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            skillName,
-            style: const TextStyle(
-              fontSize: 15,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          if (endorsementInfo != null && endorsementInfo.isNotEmpty) ...[
-            const SizedBox(height: 4),
-            Row(
-              children: [
-                const Icon(Icons.verified, size: 16, color: Colors.grey),
-                const SizedBox(width: 4),
-                Expanded(
-                  child: Text(
-                    endorsementInfo,
-                    style: TextStyle(
-                      fontSize: 13,
-                      color: Colors.grey[700],
-                    ),
-                  ),
+  return Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      Text(
+        skillName,
+        style: const TextStyle(
+          fontSize: 15,
+          fontWeight: FontWeight.w600,
+        ),
+      ),
+      if (endorsementInfo != null && endorsementInfo.isNotEmpty) ...[
+        const SizedBox(height: 4),
+        Row(
+          children: [
+            const Icon(Icons.verified, size: 16, color: Colors.grey),
+            const SizedBox(width: 4),
+            Expanded(
+              child: Text(
+                endorsementInfo,
+                style: TextStyle(
+                  fontSize: 13,
+                  color: Colors.grey[700],
                 ),
-              ],
-            ),
-          ],
-          if (endorsementCount > 0) ...[
-            const SizedBox(height: 4),
-            Text(
-              '$endorsementCount endorsement${endorsementCount != 1 ? 's' : ''}',
-              style: TextStyle(
-                fontSize: 12,
-                color: Colors.grey[600],
               ),
             ),
           ],
-        ],
-      );
-    },
+        ),
+      ],
+    ],
   );
 }
-Future<int> _getSkillEndorsementCount(String skillName) async {
-  try {
-    final result = await supabase
-        .from('skill_endorsements')
-        .select('id')
-        .eq('skill_name', skillName)
-        .eq('endorsed_user_id', widget.userId);
-    
-    return (result as List).length;
-  } catch (e) {
-    print('❌ Error getting endorsement count: $e');
-    return 0;
-  }
-}
- 
   // ✅ EXACT MODAL STYLE FROM MYPROFILE
 void _showAllSkills() {
   final skills = user!['skills'] as List;
