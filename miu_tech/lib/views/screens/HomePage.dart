@@ -104,6 +104,21 @@ class _HomePageState extends State<HomePage> {
     });
   }
 
+Future<void> _refreshFeed() async {
+  setState(() {
+    _feedFuture = _fetchFeed();
+    _commentCounts.clear(); // Clear comment cache
+  });
+  
+  // Reload stories
+  context.read<StoryProvider>().loadStories(
+    currentUserId: widget.currentUserId,
+    forYou: _showForYou,
+  );
+  
+  // Reload saved posts
+  context.read<SavedPostProvider>().loadSavedPosts(widget.currentUserId);
+}
   Future<List<AnnouncementModel>> _fetchAnnouncements() async {
     try {
       int? categoryId;
@@ -379,10 +394,16 @@ Widget _buildStatCard(String number, String label) {
 
       body: Stack(
         children: [
-          // ================= MAIN CONTENT =================
-          SingleChildScrollView(
-            controller: _scrollController,
-            padding: const EdgeInsets.all(10),
+          RefreshIndicator(
+      onRefresh: _refreshFeed,
+      color: const Color(0xFFE63946),
+      displacement: 40,
+      strokeWidth: 3.0,
+      backgroundColor: Colors.white,
+      child: SingleChildScrollView(
+        controller: _scrollController,
+        padding: const EdgeInsets.all(10),
+        physics: const AlwaysScrollableScrollPhysics(), // ADD THIS LINE
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -755,7 +776,7 @@ if (_showFreelancingHub) ...[
 ],              ],
             ),
           ),
-          // ================= CONFETTI =================
+           ), // ================= CONFETTI =================
           Align(
             alignment: Alignment.topCenter,
             child: ConfettiWidget(

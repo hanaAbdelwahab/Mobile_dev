@@ -3,7 +3,7 @@ import '../screens/AddPostScreen.dart';
 import '../screens/My_Profile.dart';
 import '../screens/messaging_page.dart';
 import '../screens/notifications_page.dart';
-
+import '../screens/HomePage.dart';
 
 class BottomNavbar extends StatelessWidget {
   final int? currentUserId;
@@ -15,68 +15,73 @@ class BottomNavbar extends StatelessWidget {
     this.currentIndex = 0,
   });
 
-  void _onItemTapped(BuildContext context, int index) {
-    // Don't navigate if already on that page
-    if (index == currentIndex) return;
-
-    // Handle navigation based on index
-    switch (index) {
-      case 0: // HOME
-        if (currentIndex != 0) {
-          Navigator.of(context).popUntil((route) => route.isFirst);
-        }
-        break;
-
-      case 1: // CHAT
+void _onItemTapped(BuildContext context, int index) {
+  // Handle navigation based on index
+  switch (index) {
+    case 0: // HOME
+      if (currentIndex != 0) {
+        // Not on home - pop back to home
+        Navigator.of(context).popUntil((route) => route.isFirst);
+      } else {
+        // Already on home - create fresh HomePage to trigger refresh
         if (currentUserId != null) {
+          Navigator.of(context).pushReplacement(
+            MaterialPageRoute(
+              builder: (context) => HomePage(currentUserId: currentUserId!),
+            ),
+          );
+        }
+      }
+      break;
+
+    case 1: // CHAT
+      if (currentUserId != null) {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => ChatsListPage(currentUserId: currentUserId!),
+          ),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Please log in to access chat')),
+        );
+      }
+      break;
+
+    case 2: // NOTIFICATIONS
+      if (currentUserId != null) {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => NotificationsPage(userId: currentUserId!),
+          ),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Please log in to access notifications')),
+        );
+      }
+      break;
+
+    case 3: // PROFILE
+      if (currentUserId != null) {
+        if (currentIndex != 3) {
           Navigator.push(
             context,
             MaterialPageRoute(
-              builder: (_) => ChatsListPage(currentUserId: currentUserId!),
+              builder: (context) => MyProfile(userId: currentUserId!),
             ),
           );
-        } else {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Please log in to access chat')),
-          );
         }
-        break;
-
-      case 2: // NOTIFICATIONS (or CALENDAR depending on your needs)
-        if (currentUserId != null) {
-          // You can choose between NotificationsPage or CalendarScreen
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (_) => NotificationsPage(userId: currentUserId!),
-              // Or use: builder: (_) => CalendarScreen(userId: currentUserId!),
-            ),
-          );
-        } else {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Please log in to access notifications')),
-          );
-        }
-        break;
-
-      case 3: // PROFILE
-        if (currentUserId != null) {
-          if (currentIndex != 3) {
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (context) => MyProfile(userId: currentUserId!),
-              ),
-            );
-          }
-        } else {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Please log in to access profile')),
-          );
-        }
-        break;
-    }
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Please log in to access profile')),
+        );
+      }
+      break;
   }
+}
 
   @override
   Widget build(BuildContext context) {
@@ -164,22 +169,41 @@ class BottomNavbar extends StatelessWidget {
                     ),
                   ],
                 ),
-                child: IconButton(
-                  onPressed: () {
-                    // Navigate to Add Post Screen
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => const AddPostScreen(),
-                      ),
-                    );
-                  },
-                  icon: const Icon(
-                    Icons.add,
-                    color: Colors.white,
-                    size: 36,
-                  ),
-                ),
+child: IconButton(
+  onPressed: () async {
+    // Navigate to Add Post Screen and wait for result
+    final result = await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => AddPostScreen(
+          currentUserId: currentUserId,
+        ),
+      ),
+    );
+    
+    // If post was created successfully, pop to home and it will auto-refresh
+    if (result != null && result is Map && result['refresh'] == true) {
+      // Pop all routes to get back to home (which will rebuild)
+      Navigator.of(context).popUntil((route) => route.isFirst);
+      
+      // Show success message
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Post created successfully!'),
+          backgroundColor: Colors.green,
+          duration: Duration(seconds: 2),
+        ),
+      );
+    }
+  },
+  icon: const Icon(
+    Icons.add,
+    color: Colors.white,
+    size: 36,
+  ),
+),
+
+
               ),
             ),
           ),
@@ -188,7 +212,6 @@ class BottomNavbar extends StatelessWidget {
     );
   }
 }
-
 // ============================================================
 // Bottom Nav Item Widget
 // ============================================================
