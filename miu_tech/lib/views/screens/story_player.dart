@@ -36,6 +36,9 @@ class _StoryPlayerState extends ConsumerState<StoryPlayer>
   VideoPlayerController? _nextVideoController;
   int? _preloadedIndex;
 
+  // New map to store updated viewer counts for each story index
+  final Map<int, int> _updatedViewerCounts = {};
+
   @override
   void initState() {
     super.initState();
@@ -187,13 +190,25 @@ class _StoryPlayerState extends ConsumerState<StoryPlayer>
     _animController.stop();
     _videoController?.pause();
 
+    final currentUserId = ref.read(storiesProvider.notifier).currentUserId;
+
     await showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       barrierColor: Colors.black54,
       enableDrag: true,
-      builder: (_) => ViewersSheet(viewerIds: _currentStory.seenBy.toList()),
+      builder: (_) => ViewersSheet(
+        storyId: _currentStory.id,
+        currentUserId: currentUserId,
+        onViewersCountUpdated: (count) {
+          if (mounted) {
+            setState(() {
+              _updatedViewerCounts[_currentIndex] = count;
+            });
+          }
+        },
+      ),
     );
 
     _animController.forward();
@@ -357,7 +372,12 @@ class _StoryPlayerState extends ConsumerState<StoryPlayer>
 
             // 4. Viewers Button
             if (isMine)
-              ViewersButton(count: story.seenBy.length, onTap: _showViewers),
+              ViewersButton(
+                count:
+                    _updatedViewerCounts[_currentIndex] ??
+                    story.seenBy.where((id) => id != currentUserId).length,
+                onTap: _showViewers,
+              ),
 
             // 5. Delete Button
             if (isMine)

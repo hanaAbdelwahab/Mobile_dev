@@ -30,6 +30,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     'Jobs',
     'Courses',
     'News',
+    'Projects',
   ];
   final List<String> locationOptions = [
     'All',
@@ -42,6 +43,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
 
   final Map<String, IconData> exploreCategories = {
     'Internships': Icons.work_outline,
+    'Projects': Icons.code,
     'Events': Icons.calendar_today,
     'Competitions': Icons.emoji_events_outlined,
     'Jobs': Icons.business_center_outlined,
@@ -201,57 +203,61 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
               ],
             ),
             const SizedBox(height: 16.0),
-         ...searchState.when(
-  data: (results) {
-    final widgets = <Widget>[];
+            ...searchState.when(
+              data: (state) {
+                // Extract all posts
+                final allPosts = state.results.where((r) {
+                  return r.type == SearchResultType.post;
+                }).toList();
 
-    if (results.isEmpty) {
-      return [const Center(child: Text('No results found'))];
-    }
+                // Other results (e.g. users)
+                final otherResults = state.results.where((r) {
+                  return r.type != SearchResultType.post;
+                }).toList();
 
-    final postResults = <SearchResultModel>[];
-    final otherResults = <SearchResultModel>[];
+                final widgets = <Widget>[];
 
-    for (final result in results) {
-      if (result.type == SearchResultType.post) {
-        postResults.add(result);
-      } else {
-        otherResults.add(result);
-      }
-    }
+                // Show posts grid first if any
+                if (allPosts.isNotEmpty) {
+                  widgets.add(
+                    GridView.builder(
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      gridDelegate:
+                          const SliverGridDelegateWithFixedCrossAxisCount(
+                            crossAxisCount: 3,
+                            crossAxisSpacing: 2,
+                            mainAxisSpacing: 2,
+                          ),
+                      itemCount: allPosts.length,
+                      itemBuilder: (context, index) {
+                        final post = allPosts[index].data as PostModel;
+                        return PostGridItem(post: post);
+                      },
+                    ),
+                  );
+                  widgets.add(const SizedBox(height: 16));
+                }
 
-    if (postResults.isNotEmpty) {
-      widgets.add(
-        GridView.builder(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: 3,
-            crossAxisSpacing: 2,
-            mainAxisSpacing: 2,
-          ),
-          itemCount: postResults.length,
-          itemBuilder: (context, index) {
-            final post = postResults[index].data as PostModel;
-            return PostGridItem(post: post);
-          },
-        ),
-      );
-      widgets.add(const SizedBox(height: 16));
-    }
+                // Then show other results as a list
+                if (otherResults.isNotEmpty) {
+                  widgets.addAll(
+                    otherResults.map((result) => ResultCard(result: result)),
+                  );
+                }
 
-    if (otherResults.isNotEmpty) {
-      widgets.addAll(
-        otherResults.map((r) => ResultCard(result: r)),
-      );
-    }
+                if (widgets.isEmpty) {
+                  widgets.add(const Center(child: Text('No results found')));
+                }
 
-    return widgets;
-  },
-  loading: () => [const Center(child: CircularProgressIndicator())],
-  error: (e, _) => [Center(child: Text('Error: $e'))],
-),
-         ],
+                return widgets;
+              },
+              loading: () => [const Center(child: CircularProgressIndicator())],
+              error: (error, stack) => [Center(child: Text('Error: $error'))],
+            ),
+          ] else ...[
+            _buildExploreSection(),
+          ],
         ],
       ),
     );
@@ -323,53 +329,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
             },
           ),
         ),
-        const SizedBox(height: 32),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            const Text(
-              'Recommendations',
-              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-            ),
-            TextButton(
-              onPressed: () {
-                setState(() {
-                  selectedType = 'All';
-                });
-                _updateFilters();
-              },
-              child: const Text('See All'),
-            ),
-          ],
-        ),
-        const SizedBox(height: 12),
-        FutureBuilder(
-          future: ref.read(searchRepositoryProvider).getRecommendedPosts(),
-          builder: (context, snapshot) {
-            if (snapshot.connectionState == ConnectionState.waiting) {
-              return const Center(child: CircularProgressIndicator());
-            }
-            if (snapshot.hasError) {
-              return Center(child: Text('Error: ${snapshot.error}'));
-            }
-            if (!snapshot.hasData || snapshot.data!.isEmpty) {
-              return const Text('No recommendations yet.');
-            }
-            return GridView.builder(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 3,
-                crossAxisSpacing: 2,
-                mainAxisSpacing: 2,
-              ),
-              itemCount: snapshot.data!.length,
-              itemBuilder: (context, index) {
-                return PostGridItem(post: snapshot.data![index]);
-              },
-            );
-          },
-        ),
+        const SizedBox(height: 16),
         const SizedBox(height: 32),
       ],
     );

@@ -165,6 +165,7 @@ class _CreateStoryScreenState extends ConsumerState<CreateStoryScreen> {
           toolbarTitle: 'Edit Story',
           toolbarColor: Colors.black,
           toolbarWidgetColor: Colors.white,
+          statusBarColor: Colors.black,
           initAspectRatio: CropAspectRatioPreset.ratio16x9,
           lockAspectRatio: true,
           backgroundColor: Colors.black,

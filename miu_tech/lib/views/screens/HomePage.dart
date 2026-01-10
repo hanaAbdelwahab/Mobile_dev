@@ -9,7 +9,7 @@ import '../widgets/top_navbar.dart';
 import '../widgets/bottom_navbar.dart';
 import '../widgets/user_drawer_header.dart';
 import '../widgets/category_chip.dart';
-import '../widgets/story_section.dart';
+import 'stories_row.dart';
 import 'package:provider/provider.dart';
 import '../../providers/post_provider.dart';
 import '../../providers/repost_provider.dart';
@@ -699,33 +699,7 @@ if (_showFreelancingHub) ...[
   
   const SizedBox(height: 20),
   
-  // EXISTING FEED (Stories + Posts)
-  FutureBuilder<Map<String, dynamic>?>(
-    future: UserController.fetchUserData(widget.currentUserId),
-    builder: (context, userSnapshot) {
-      if (!userSnapshot.hasData) {
-        return const SizedBox(
-          height: 120,
-          child: Center(child: CircularProgressIndicator()),
-        );
-      }
-
-      final profileImage = userSnapshot.data?['profile_image'];
-      return Consumer<StoryProvider>(
-        builder: (context, storyProvider, _) {
-          return StorySection(
-            myAvatarUrl: profileImage,
-            stories: storyProvider.stories,
-            hasMyStory: storyProvider.stories.any(
-              (s) => s['user_id'] == widget.currentUserId,
-            ),
-            currentUserId: widget.currentUserId,
-          );
-        },
-      );
-    },
-  ),
-
+const StoriesRow(),
   const SizedBox(height: 10),
   Divider(color: Colors.grey.shade300),
 
