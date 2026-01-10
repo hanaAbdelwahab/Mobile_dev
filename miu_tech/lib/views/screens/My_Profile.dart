@@ -321,27 +321,27 @@ class _MyProfileState extends State<MyProfile>
     }
   }
 
-  Future<void> _loadConnectionStats() async {
-    final friendships1 = await supabase
-        .from('friendships')
-        .select('friend_id')
-        .eq('user_id', widget.userId)
-        .eq('status', 'accepted');
+Future<void> _loadConnectionStats() async {
+  final friendships1 = await supabase
+      .from('friendships')
+      .select('friend_id')
+      .eq('user_id', widget.userId)
+      .eq('status', 'accepted');
 
-    final friendships2 = await supabase
-        .from('friendships')
-        .select('user_id')
-        .eq('friend_id', widget.userId)
-        .eq('status', 'accepted');
+  final friendships2 = await supabase
+      .from('friendships')
+      .select('user_id')
+      .eq('friend_id', widget.userId)
+      .eq('status', 'accepted');
 
-    if (mounted) {
-      setState(() {
-        connections = friendships1.length + friendships2.length;
-        followers = connections;
-      });
-    }
+  if (mounted) {
+    setState(() {
+      // ✅ Only count followers, no connections
+      followers = friendships1.length + friendships2.length;
+      connections = 0; // Remove connections count
+    });
   }
-
+}
   Widget _buildModalLabel(String text) => Padding(
     padding: const EdgeInsets.only(bottom: 8, top: 16),
     child: Text(
@@ -3570,27 +3570,15 @@ class _MyProfileState extends State<MyProfile>
 
                   const SizedBox(height: 12),
 
-                  Row(
-                    children: [
-                      Text(
-                        '$followers followers',
-                        style: const TextStyle(
-                          fontSize: 14,
-                          color: Color(0xFFDC143C),
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      Text(' · ', style: TextStyle(color: Colors.grey[600])),
-                      Text(
-                        '$connections connections',
-                        style: const TextStyle(
-                          fontSize: 14,
-                          color: Color(0xFFDC143C),
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ],
-                  ),
+                // Connections count
+Text(
+  '$followers followers',
+  style: const TextStyle(
+    fontSize: 14,
+    color: Color(0xFFDC143C),
+    fontWeight: FontWeight.w600,
+  ),
+),
 
                   const SizedBox(height: 16),
 
