@@ -151,9 +151,13 @@ Future<void> _refreshFeed() async {
       feedItems.addAll(announcements.map((a) => FeedItem.fromAnnouncement(a)));
 
       /*feedItems.addAll(requests.map((r) => FeedItem.fromRequest(r)));*/
-      if (!_showForYou && _selectedCategory == "Competitions") {
+if (!_showForYou &&
+    (_selectedCategory == "Competitions" || _selectedCategory == "ALL")) {
   final requests = await CompetitionRequestController.fetchAllRequests();
-  feedItems.addAll(requests.map((r) => FeedItem.fromRequest(r)));
+
+  feedItems.addAll(
+    requests.map((r) => FeedItem.fromRequest(r)),
+  );
 }
 if (_showForYou) {
   final friendIds = await _getFriendIds();

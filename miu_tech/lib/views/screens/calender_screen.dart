@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../widgets/top_navbar.dart';
 import '../widgets/bottom_navbar.dart';
+import '../widgets/user_drawer_header.dart';
 
 class CalendarScreen extends StatefulWidget {
   final int userId;
@@ -144,6 +145,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
 
     return Scaffold(
       backgroundColor: const Color(0xFFF5F7FA),
+      endDrawer: UserDrawerContent(userId: widget.userId),
       body: SafeArea(
         child: Column(
           children: [
