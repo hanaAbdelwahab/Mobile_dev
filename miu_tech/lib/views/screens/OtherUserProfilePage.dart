@@ -9,10 +9,12 @@ final supabase = Supabase.instance.client;
 
 class OtherUserProfilePage extends StatefulWidget {
   final String userId;
+  final String currentUserId;
 
   const OtherUserProfilePage({
     super.key,
     required this.userId,
+    required this.currentUserId,
   });
 
   @override
@@ -29,8 +31,8 @@ class _OtherUserProfilePageState extends State<OtherUserProfilePage>
   bool isFollowing = false;
   late AnimationController _animationController;
   late Animation<double> _fadeAnimation;
+   late final String mockCurrentUserId;
 
-  final String mockCurrentUserId = "11111111-1111-1111-1111-111111111111";
 
   Map<String, dynamic>? user;
   List<Map<String, dynamic>> userPosts = [];
@@ -60,7 +62,7 @@ List<Map<String, dynamic>> allUserReposts = [];
   @override
   void initState() {
     super.initState();
-    
+    mockCurrentUserId = widget.currentUserId;
     // ✅ INITIALIZE TAB CONTROLLER (EXACT FROM MYPROFILE)
     _activityTabController = TabController(length: 3, vsync: this);
     _activityTabController.addListener(() {
@@ -83,7 +85,38 @@ List<Map<String, dynamic>> allUserReposts = [];
     await fetchCurrentUserData();
     await fetchUserAndPosts();
   }
+Future<void> fetchCurrentUserData() async {
+  try {
+    // Check if using mock user
+    if (mockCurrentUserId == "11111111-1111-1111-1111-111111111111") {
+      setState(() {
+        currentUsername = "Ibrahim";
+        currentUserProfileUrl = null;
+      });
+      print('✅ Using mock user: $currentUsername');
+      return;
+    }
 
+    // FIX: Use correct column names (name instead of username, user_id instead of id)
+    final userData = await supabase
+        .from('users')
+        .select('name, profile_image') // Changed from username and profile_image_url
+        .eq('user_id', int.parse(mockCurrentUserId)) // Changed from id to user_id
+        .single();
+
+    setState(() {
+      currentUsername = userData['name'] ?? 'Someone'; // Changed from username to name
+      currentUserProfileUrl = userData['profile_image']; // Changed from profile_image_url to profile_image
+    });
+
+    print('✅ Current user loaded: $currentUsername');
+  } catch (e) {
+    print('⚠️ Error fetching current user data: $e');
+    setState(() {
+      currentUsername = 'Someone';
+    });
+  }
+}
   @override
   void dispose() {
     _activityTabController.dispose(); // ✅ DISPOSE TAB CONTROLLER
@@ -91,38 +124,7 @@ List<Map<String, dynamic>> allUserReposts = [];
     super.dispose();
   }
 
-  Future<void> fetchCurrentUserData() async {
-    try {
-      if (mockCurrentUserId == "11111111-1111-1111-1111-111111111111") {
-        setState(() {
-          currentUsername = "Ibrahim";
-          currentUserProfileUrl = null;
-        });
-        print('✅ Using mock user: $currentUsername');
-        return;
-      }
-
-      final userData = await supabase
-          .from('users')
-          .select('username, profile_image_url')
-          .eq('id', mockCurrentUserId)
-          .single();
-
-      setState(() {
-        currentUsername = userData['username'] ?? 'Someone';
-        currentUserProfileUrl = userData['profile_image_url'];
-      });
-
-      print('✅ Current user loaded: $currentUsername');
-    } catch (e) {
-      print('⚠️ Error fetching current user data: $e');
-      setState(() {
-        currentUsername = 'Someone';
-      });
-    }
-  }
-
-  Future<void> createNotification({
+   Future<void> createNotification({
     required String type,
     required String title,
     required String message,
@@ -237,195 +239,196 @@ List<Map<String, dynamic>> allUserReposts = [];
     }
   }
 
-  Future<void> fetchUserAndPosts() async {
+Future<void> fetchUserAndPosts() async {
+  try {
+    print('🔍 Fetching user: ${widget.userId}');
+
+    // Fetch user basic info
+    final fetchedUser = await supabase
+        .from('users')
+        .select('user_id,name,email,role,profile_image,cover_image,department,bio,academic_year')
+        .eq('user_id', int.parse(widget.userId))
+        .single();
+
+    print('✅ User: ${fetchedUser['name']}');
+    print('📝 Bio: ${fetchedUser['bio'] ?? "No bio"}');
+
+    // ✅ Fetch experience from experiences table
+    List<dynamic> experienceList = [];
     try {
-      print('🔍 Fetching user: ${widget.userId}');
+      final expData = await supabase
+          .from('experiences')
+          .select('*')
+          .eq('user_id', int.parse(widget.userId))
+          .order('start_date', ascending: false);
+      experienceList = expData as List;
+      print('✅ Loaded ${experienceList.length} experiences');
+    } catch (e) {
+      print('⚠️ Error loading experiences: $e');
+    }
 
-      final fetchedUser = await supabase
-          .from('users')
-          .select('id, username, role, bio, experience, education, skills')
-          .eq('id', widget.userId)
-          .single();
+    // ✅ Fetch skills from skills table
+    List<dynamic> skillsList = [];
+    try {
+      final skillsData = await supabase
+          .from('skills')
+          .select('*')
+          .eq('user_id', int.parse(widget.userId))
+          .order('created_at', ascending: false);
+      skillsList = skillsData as List;
+      print('✅ Loaded ${skillsList.length} skills');
+    } catch (e) {
+      print('⚠️ Error loading skills: $e');
+    }
 
-      print('✅ User: ${fetchedUser['username']}');
-      print('📝 Bio: ${fetchedUser['bio'] ?? "No bio"}');
+    // ✅ LOAD POSTS
+    await _loadUserPosts();
 
-   
-// ✅ LOAD POSTS
-await _loadUserPosts();
+    // ✅ LOAD COMMENTS
+    await _loadUserComments();
 
-// ✅ LOAD COMMENTS
-await _loadUserComments();
+    // ✅ LOAD REPOSTS
+    await _loadUserReposts();
+    await _loadSavedPostsStatus();
 
-// ✅ LOAD REPOSTS
-await _loadUserReposts();
-await _loadSavedPostsStatus();
-
-      setState(() {
+    setState(() {
+      allUserComments = [];
+      allUserReposts = [];
       
-         allUserComments = [];  // ← ADD THIS
-  allUserReposts = [];
-        user = fetchedUser;
-        loading = false;
-      });
+      user = {
+        ...fetchedUser,
+        'experience': experienceList,
+        'skills': skillsList,
+      };
+      loading = false;
+    });
 
-      await checkIfFollowing();
-      await fetchFollowerCounts();
+    await checkIfFollowing();
+    await fetchFollowerCounts();
 
-      if (fetchedUser['skills'] != null &&
-          (fetchedUser['skills'] as List).isNotEmpty) {
-        final skills = fetchedUser['skills'] as List;
-        final Map<String, bool> endorsementStatus = {};
+    // Load skill endorsements if skills exist
+    if (skillsList.isNotEmpty) {
+      final Map<String, bool> endorsementStatus = {};
 
-        for (var skill in skills) {
-          final skillName = skill['name'];
-          if (skillName != null) {
-            try {
-              final endorsement = await supabase
-                  .from('skill_endorsements')
-                  .select()
-                  .eq('skill_name', skillName)
-                  .eq('endorsed_user_id', widget.userId)
-                  .eq('endorser_user_id', mockCurrentUserId)
-                  .maybeSingle();
+      for (var skill in skillsList) {
+        final skillName = skill['name'];
+        if (skillName != null) {
+          try {
+            final endorsement = await supabase
+                .from('skill_endorsements')
+                .select()
+                .eq('skill_name', skillName)
+                .eq('endorsed_user_id', int.parse(widget.userId))
+                .eq('endorser_user_id', int.parse(mockCurrentUserId))
+                .maybeSingle();
 
-              endorsementStatus[skillName] = endorsement != null;
-            } catch (e) {
-              print('⚠️ Error checking endorsement for $skillName: $e');
-              endorsementStatus[skillName] = false;
-            }
+            endorsementStatus[skillName] = endorsement != null;
+          } catch (e) {
+            print('⚠️ Error checking endorsement for $skillName: $e');
+            endorsementStatus[skillName] = false;
           }
         }
-
-        setState(() {
-          endorsedSkills = endorsementStatus;
-        });
-
-        print('✅ Loaded endorsement status: $endorsedSkills');
       }
-
-      _animationController.forward();
-    } catch (e, stackTrace) {
-      print('❌ Error: $e');
-      print('Stack: $stackTrace');
 
       setState(() {
-        user = {
-          "username": "Unknown",
-          "role": "Unknown",
-          "id": widget.userId,
-          "bio": null
-        };
-        userPosts = [];
-        userComments = [];
-        userReposts = [];
-        loading = false;
+        endorsedSkills = endorsementStatus;
       });
+
+      print('✅ Loaded endorsement status: $endorsedSkills');
     }
+
+    _animationController.forward();
+  } catch (e, stackTrace) {
+    print('❌ Error: $e');
+    print('Stack: $stackTrace');
+
+    setState(() {
+      user = {
+        "name": "Unknown",
+        "role": "Unknown",
+        "user_id": int.parse(widget.userId),
+        "bio": null,
+        "experience": [],
+        "skills": [],
+      };
+      userPosts = [];
+      userComments = [];
+      userReposts = [];
+      loading = false;
+    });
   }
-
-  // ✅ LOAD POSTS (EXACT FROM MYPROFILE)
-  Future<void> _loadUserPosts() async {
-    try {
-      final postsResponse = await supabase
-          .from('posts')
-          .select('id, content, created_at, user_id')
-          .eq('user_id', widget.userId)
-          .order('created_at', ascending: false);
-
-      print('📊 Posts found: ${(postsResponse as List).length}');
-
-      final List<Map<String, dynamic>> transformedPosts = [];
-
-      for (var post in postsResponse) {
-        final postId = post['id'];
-
-        final likesData = await supabase.from('likes').select().eq('post_id', postId);
-        final likeCount = (likesData as List).length;
-
-        final userLike = await supabase
-            .from('likes')
-            .select()
-            .eq('post_id', postId)
-            .eq('user_id', mockCurrentUserId)
-            .maybeSingle();
-
-        final commentsData =
-            await supabase.from('comments').select().eq('post_id', postId);
-        final commentCount = (commentsData as List).length;
-
-        final repostsData =
-            await supabase.from('reposts').select().eq('post_id', postId);
-        final repostCount = (repostsData as List).length;
-
-        final userRepost = await supabase
-            .from('reposts')
-            .select()
-            .eq('post_id', postId)
-            .eq('user_id', mockCurrentUserId)
-            .maybeSingle();
-
-        transformedPosts.add({
-          "id": postId,
-          "text": post['content'] ?? 'No content',
-          "image": false,
-          "reposter": "",
-          "comments": commentCount,
-          "likes": likeCount,
-          "reposts": repostCount,
-          "isLiked": userLike != null,
-          "isReposted": userRepost != null,
-          "postComments": [],
-          "created_at": post['created_at'],
-        });
-      }
-
-      if (mounted) {
-        setState(() {
-          userPosts = transformedPosts;
-        });
-      }
-    } catch (e) {
-      print('❌ Error loading posts: $e');
-      if (mounted) {
-        setState(() {
-          userPosts = [];
-        });
-      }
-    }
-  }
-
-  // ✅ NEW METHOD 1: Load ALL comments user made across platform
-Future<void> _loadAllUserComments() async {
+}// ✅ LOAD POSTS (EXACT FROM MYPROFILE)
+ Future<void> _loadUserPosts() async {
   try {
-    final data = await supabase
-        .from('comments')
-        .select('''
-        id,
-        content,
-        created_at,
-        user_id,
-        post_id,
-        posts!inner(id, content, user_id, users!inner(username))
-      ''')
-        .eq('user_id', widget.userId)
+    final postsResponse = await supabase
+        .from('posts')
+        .select('post_id, content, created_at, author_id') // Use correct column names
+        .eq('author_id', int.parse(widget.userId)) // Parse to int
         .order('created_at', ascending: false);
 
+    print('📊 Posts found: ${(postsResponse as List).length}');
+
+    final List<Map<String, dynamic>> transformedPosts = [];
+
+    for (var post in postsResponse) {
+      final postId = post['post_id']; // Changed from id
+
+      // Rest of your code...
+      final likesData = await supabase.from('likes').select().eq('post_id', postId);
+      final likeCount = (likesData as List).length;
+
+      final userLike = await supabase
+          .from('likes')
+          .select()
+          .eq('post_id', postId)
+          .eq('user_id', int.parse(mockCurrentUserId)) // Parse to int
+          .maybeSingle();
+
+      final commentsData =
+          await supabase.from('comments').select().eq('post_id', postId);
+      final commentCount = (commentsData as List).length;
+
+      final repostsData =
+          await supabase.from('reposts').select().eq('post_id', postId);
+      final repostCount = (repostsData as List).length;
+
+      final userRepost = await supabase
+          .from('reposts')
+          .select()
+          .eq('post_id', postId)
+          .eq('user_id', int.parse(mockCurrentUserId)) // Parse to int
+          .maybeSingle();
+
+      transformedPosts.add({
+        "id": postId,
+        "text": post['content'] ?? 'No content',
+        "image": false,
+        "reposter": "",
+        "comments": commentCount,
+        "likes": likeCount,
+        "reposts": repostCount,
+        "isLiked": userLike != null,
+        "isReposted": userRepost != null,
+        "postComments": [],
+        "created_at": post['created_at'],
+      });
+    }
+
     if (mounted) {
       setState(() {
-        allUserComments = List<Map<String, dynamic>>.from(data);
+        userPosts = transformedPosts;
       });
-      print('✅ Loaded ${allUserComments.length} comments across platform');
     }
   } catch (e) {
-    print('❌ Error loading all comments: $e');
+    print('❌ Error loading posts: $e');
     if (mounted) {
       setState(() {
-        allUserComments = [];
+        userPosts = [];
       });
     }
   }
 }
+  // ✅ NEW METHOD 1: Load ALL comments user made across platform
 
 // ✅ NEW METHOD 2: Load ALL reposts user made across platform
 Future<void> _loadAllUserReposts() async {
@@ -808,7 +811,7 @@ void _showPostMenu(BuildContext context, String postId) {
           MaterialPageRoute(
             builder: (_) => ChatRoomPage(
               conversationId: conversationId!,
-              otherUserName: user!['username'] ?? 'Unknown',
+              otherUserName: user!['name'] ?? 'Unknown',
               otherUserId: widget.userId,
             ),
           ),
@@ -1144,12 +1147,12 @@ Widget _buildAllRepostItem(Map<String, dynamic> repost) {
                                   radius: 60,
                                   backgroundColor: primaryRed,
                                   child: Text(
-                                    (user!['username'] ?? 'U')
-                                        .split(' ')
-                                        .map((e) => e.isNotEmpty ? e[0] : '')
-                                        .take(2)
-                                        .join()
-                                        .toUpperCase(),
+                                    (user!['name'] ?? 'U') // Changed from username
+      .split(' ')
+      .map((e) => e.isNotEmpty ? e[0] : '')
+      .take(2)
+      .join()
+      .toUpperCase(),
                                     style: const TextStyle(
                                       color: Colors.white,
                                       fontSize: 36,
@@ -1172,7 +1175,7 @@ Widget _buildAllRepostItem(Map<String, dynamic> repost) {
                             children: [
                               // Name and headline
                               Text(
-                                user!['username'] ?? 'Unknown User',
+                                user!['name'] ?? 'Unknown User',
                                 style: const TextStyle(
                                   fontSize: 24,
                                   fontWeight: FontWeight.w600,
@@ -1296,12 +1299,6 @@ _buildActivityCard(),
                       (user!['experience'] as List).isNotEmpty)
                     _buildExperienceCard(),
 
-                  const SizedBox(height: 8),
-
-                  // Education section
-                  if (user!['education'] != null &&
-                      (user!['education'] as List).isNotEmpty)
-                    _buildEducationCard(),
 
                   const SizedBox(height: 8),
 
@@ -1572,12 +1569,12 @@ _buildActivityCard(),
                 radius: 20,
                 backgroundColor: primaryRed,
                 child: Text(
-                  (user!['username'] ?? 'U')
-                      .split(' ')
-                      .map((e) => e.isNotEmpty ? e[0] : '')
-                      .take(2)
-                      .join()
-                      .toUpperCase(),
+                  (user!['name'] ?? 'U') // Changed from username
+      .split(' ')
+      .map((e) => e.isNotEmpty ? e[0] : '')
+      .take(2)
+      .join()
+      .toUpperCase(),
                   style: const TextStyle(
                     color: Colors.white,
                     fontWeight: FontWeight.w600,
@@ -1591,7 +1588,7 @@ _buildActivityCard(),
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      user!['username'] ?? 'Unknown',
+                      user!['name'] ?? 'Unknown',
                       style: const TextStyle(
                         fontWeight: FontWeight.w600,
                         fontSize: 14,
@@ -1672,7 +1669,7 @@ _buildActivityCard(),
               Icon(Icons.repeat, size: 16, color: Colors.grey[600]),
               const SizedBox(width: 4),
               Text(
-                '${user!['username']} reposted',
+                '${user!['name']} reposted',
                 style: TextStyle(
                   fontSize: 12,
                   color: Colors.grey[600],
@@ -1767,7 +1764,7 @@ _buildActivityCard(),
                   radius: 20,
                   backgroundColor: primaryRed,
                   child: Text(
-                    (user!['username'] ?? 'U')
+                    (user!['name'] ?? 'U')
                         .split(' ')
                         .map((e) => e.isNotEmpty ? e[0] : '')
                         .take(2)
@@ -1786,7 +1783,7 @@ _buildActivityCard(),
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        user!['username'] ?? 'Unknown User',
+                        user!['name'] ?? 'Unknown User',
                         style: const TextStyle(
                           fontWeight: FontWeight.w600,
                           fontSize: 14,
@@ -2380,7 +2377,7 @@ _buildActivityCard(),
             radius: 20,
             backgroundColor: primaryRed,
             child: Text(
-              (user!['username'] ?? 'U')
+              (user!['name'] ?? 'U')
                   .split(' ')
                   .map((e) => e.isNotEmpty ? e[0] : '')
                   .take(2)
@@ -2490,7 +2487,7 @@ _buildActivityCard(),
     );
   }
 
-  Widget _buildExperienceCard() {
+Widget _buildExperienceCard() {
   final experiences = user!['experience'] as List;
 
   return Container(
@@ -2512,6 +2509,23 @@ _buildActivityCard(),
         ...experiences.asMap().entries.map((entry) {
           final index = entry.key;
           final exp = entry.value;
+
+          // Format dates
+          String dateRange = '';
+          if (exp['start_date'] != null) {
+            final startDate = DateTime.parse(exp['start_date']);
+            final startFormatted = DateFormat('MMM yyyy').format(startDate);
+            
+            if (exp['is_current'] == true) {
+              dateRange = '$startFormatted - Present';
+            } else if (exp['end_date'] != null) {
+              final endDate = DateTime.parse(exp['end_date']);
+              final endFormatted = DateFormat('MMM yyyy').format(endDate);
+              dateRange = '$startFormatted - $endFormatted';
+            } else {
+              dateRange = startFormatted;
+            }
+          }
 
           return Column(
             children: [
@@ -2537,47 +2551,29 @@ _buildActivityCard(),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          exp['title'] ?? 'Position',
-                          style: const TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w600,
-                            color: Colors.black,
-                            height: 1.2,
-                            letterSpacing: -0.2,
-                          ),
-                        ),
-                        const SizedBox(height: 3),
-                        Text(
-                          '${exp['company'] ?? 'Company'} · ${exp['type'] ?? 'Full-time'}',
-                          style: TextStyle(
-                            fontSize: 14,
-                            color: Colors.grey[800],
-                            height: 1.2,
-                          ),
-                        ),
-                        const SizedBox(height: 3),
-                        Text(
-                          exp['duration'] ?? '< 1 mo',
-                          style: TextStyle(
-                            fontSize: 14,
-                            color: Colors.grey[600],
-                            height: 1.2,
-                          ),
-                        ),
-                        if (exp['location'] != null) ...[
-                          const SizedBox(height: 3),
+                        if (dateRange.isNotEmpty) ...[
                           Text(
-                            '${exp['location']}${exp['locationType'] != null ? ' · ${exp['locationType']}' : ''}',
+                            dateRange,
                             style: TextStyle(
                               fontSize: 14,
                               color: Colors.grey[600],
                               height: 1.2,
                             ),
                           ),
+                          const SizedBox(height: 8),
+                        ],
+                        if (exp['description'] != null && exp['description'].toString().isNotEmpty) ...[
+                          Text(
+                            exp['description'],
+                            style: TextStyle(
+                              fontSize: 14,
+                              color: Colors.grey[800],
+                              height: 1.4,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
                         ],
                         if (exp['skills'] != null) ...[
-                          const SizedBox(height: 8),
                           Row(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
@@ -2585,7 +2581,7 @@ _buildActivityCard(),
                               const SizedBox(width: 5),
                               Expanded(
                                 child: Text(
-                                  exp['skills'],
+                                  exp['skills'].toString(),
                                   style: TextStyle(
                                     fontSize: 13,
                                     color: Colors.grey[600],
@@ -2608,7 +2604,6 @@ _buildActivityCard(),
     ),
   );
 }
-
  Widget _buildEducationCard() {
   final education = user!['education'] as List;
 
@@ -2783,83 +2778,82 @@ _buildActivityCard(),
   );
 }
   // ✅ EXACT SKILL ITEM STYLE FROM MYPROFILE WITH ENDORSE BUTTON
-  Widget _buildSkillItem(
-      String skillName, String? description, int endorsements) {
-    final isEndorsed = endorsedSkills[skillName] ?? false;
+Widget _buildSkillItem(
+    String skillName, String? proficiencyLevel, int endorsements) {
+  final isEndorsed = endorsedSkills[skillName] ?? false;
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
+  return Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      Text(
+        skillName,
+        style: const TextStyle(
+          fontSize: 16,
+          fontWeight: FontWeight.w600,
+          color: Colors.black,
+          height: 1.3,
+        ),
+      ),
+      if (proficiencyLevel != null && proficiencyLevel.isNotEmpty) ...[
+        const SizedBox(height: 4),
         Text(
-          skillName,
-          style: const TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.w600,
-            color: Colors.black,
-            height: 1.3,
+          'Proficiency: $proficiencyLevel',
+          style: TextStyle(
+            fontSize: 14,
+            color: Colors.grey[600],
+            height: 1.4,
           ),
         ),
-        if (description != null && description.isNotEmpty) ...[
-          const SizedBox(height: 4),
-          Text(
-            description,
-            style: TextStyle(
-              fontSize: 14,
-              color: Colors.grey[600],
-              height: 1.4,
-            ),
-          ),
-        ],
-        const SizedBox(height: 12),
-        Align(
-          alignment: Alignment.centerLeft,
-          child: Material(
-            color: Colors.transparent,
-            child: InkWell(
-              onTap: () async {
-                await _toggleSkillEndorsement(skillName);
-              },
-              borderRadius: BorderRadius.circular(16),
-              child: Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 14,
-                  vertical: 6,
+      ],
+      const SizedBox(height: 12),
+      Align(
+        alignment: Alignment.centerLeft,
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: () async {
+              await _toggleSkillEndorsement(skillName);
+            },
+            borderRadius: BorderRadius.circular(16),
+            child: Container(
+              padding: const EdgeInsets.symmetric(
+                horizontal: 14,
+                vertical: 6,
+              ),
+              decoration: BoxDecoration(
+                color: isEndorsed ? primaryRed : Colors.transparent,
+                border: Border.all(
+                  color: isEndorsed ? primaryRed : Colors.grey[500]!,
+                  width: 1.5,
                 ),
-                decoration: BoxDecoration(
-                  color: isEndorsed ? primaryRed : Colors.transparent,
-                  border: Border.all(
-                    color: isEndorsed ? primaryRed : Colors.grey[500]!,
-                    width: 1.5,
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    isEndorsed ? Icons.check : Icons.add,
+                    size: 16,
+                    color: isEndorsed ? Colors.white : Colors.grey[600],
                   ),
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(
-                      isEndorsed ? Icons.check : Icons.add,
-                      size: 16,
+                  const SizedBox(width: 4),
+                  Text(
+                    isEndorsed ? 'Endorsed' : 'Endorse',
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
                       color: isEndorsed ? Colors.white : Colors.grey[600],
                     ),
-                    const SizedBox(width: 4),
-                    Text(
-                      isEndorsed ? 'Endorsed' : 'Endorse',
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                        color: isEndorsed ? Colors.white : Colors.grey[600],
-                      ),
-                    ),
-                  ],
-                ),
+                  ),
+                ],
               ),
             ),
           ),
         ),
-      ],
-    );
-  }
-
+      ),
+    ],
+  );
+}
   Future<void> _toggleSkillEndorsement(String skillName) async {
     setState(() {
       endorsedSkills[skillName] = !(endorsedSkills[skillName] ?? false);
@@ -2917,83 +2911,88 @@ _buildActivityCard(),
   }
 
   // ✅ EXACT MODAL STYLE FROM MYPROFILE
-  void _showAllSkills() {
-    final skills = user!['skills'] as List;
+void _showAllSkills() {
+  final skills = user!['skills'] as List;
 
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (context) => Container(
-        height: MediaQuery.of(context).size.height * 0.9,
-        child: Column(
-          children: [
-            // ✅ DRAG HANDLE
-            Container(
-              width: 40,
-              height: 4,
-              margin: const EdgeInsets.only(top: 12, bottom: 20),
-              decoration: BoxDecoration(
-                color: Colors.grey[300],
-                borderRadius: BorderRadius.circular(2),
-              ),
+  showModalBottomSheet(
+    context: context,
+    isScrollControlled: true,
+    backgroundColor: Colors.white,
+    shape: const RoundedRectangleBorder(
+      borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+    ),
+    builder: (context) => Container(
+      height: MediaQuery.of(context).size.height * 0.9,
+      child: Column(
+        children: [
+          Container(
+            width: 40,
+            height: 4,
+            margin: const EdgeInsets.only(top: 12, bottom: 20),
+            decoration: BoxDecoration(
+              color: Colors.grey[300],
+              borderRadius: BorderRadius.circular(2),
             ),
-
-            // Header
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          ),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  'Skills (${skills.length})',
+                  style: const TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.black,
+                  ),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.close, color: Colors.black),
+                  onPressed: () => Navigator.pop(context),
+                ),
+              ],
+            ),
+          ),
+          const Divider(),
+          Expanded(
+            child: ListView.separated(
+              padding: const EdgeInsets.all(20),
+              itemCount: skills.length,
+              separatorBuilder: (context, index) => Column(
                 children: [
-                  Text(
-                    'Skills (${skills.length})',
-                    style: const TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.black,
-                    ),
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.close, color: Colors.black),
-                    onPressed: () => Navigator.pop(context),
-                  ),
+                  const SizedBox(height: 16),
+                  Divider(height: 1, color: Colors.grey[300]),
+                  const SizedBox(height: 16),
                 ],
               ),
+              itemBuilder: (context, index) {
+                final skill = skills[index];
+                
+                int endorsements = 0;
+                if (skill['endorsement_info'] != null) {
+                  try {
+                    endorsements = skill['endorsement_info'] is int 
+                        ? skill['endorsement_info'] 
+                        : 0;
+                  } catch (e) {
+                    print('⚠️ Error parsing endorsement_info: $e');
+                  }
+                }
+                
+                return _buildSkillItem(
+                  skill['name'] ?? 'Skill',
+                  skill['proficiency_level'],
+                  endorsements,
+                );
+              },
             ),
-
-            const Divider(),
-
-            // Skills list
-            Expanded(
-              child: ListView.separated(
-                padding: const EdgeInsets.all(20),
-                itemCount: skills.length,
-                separatorBuilder: (context, index) => Column(
-                  children: [
-                    const SizedBox(height: 16),
-                    Divider(height: 1, color: Colors.grey[300]),
-                    const SizedBox(height: 16),
-                  ],
-                ),
-                itemBuilder: (context, index) {
-                  final skill = skills[index];
-                  return _buildSkillItem(
-                    skill['name'] ?? 'Skill',
-                    skill['description'],
-                    skill['endorsements'] ?? 0,
-                  );
-                },
-              ),
-            ),
-          ],
-        ),
+          ),
+        ],
       ),
-    );
-  }
-  
+    ),
+  );
+}
  Widget _buildAllActivityCard() {
   if (allUserComments.isEmpty && allUserReposts.isEmpty) {
     return const SizedBox.shrink();

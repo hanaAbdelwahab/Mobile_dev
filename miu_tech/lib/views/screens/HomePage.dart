@@ -24,6 +24,7 @@ import '../../controllers/announcement_controller.dart';
 import '../widgets/competition_request_card.dart';
 import '../../models/FreelanceProjectModel.dart';
 import '../widgets/freelance_project_card.dart';
+import 'OtherUserProfilePage.dart'; 
 final supabase = Supabase.instance.client;
 class FeedItem {
   final PostModel? post;
@@ -1083,6 +1084,26 @@ Widget _feedCard(PostModel post) {
                           // USER INFO HEADER
                           Row(
                             children: [
+                              Expanded(
+      child: GestureDetector(
+        onTap: () {
+          // Navigate to user profile
+          if (post.authorId != widget.currentUserId) {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => OtherUserProfilePage(
+                  userId: post.authorId.toString(),
+                  currentUserId: widget.currentUserId.toString(),
+                ),
+              ),
+            );
+          }
+          // If it's the current user, you might want to navigate to their own profile page
+          // or show a message that they're viewing their own content
+        },
+        child: Row(
+          children: [
                               CircleAvatar(
                                 radius: 20,
                                 backgroundColor: Colors.grey[200],
@@ -1139,10 +1160,14 @@ Widget _feedCard(PostModel post) {
                                         fontSize: 12,
                                         color: Colors.grey[600],
                                       ),
-                                    ),
-                                  ],
-                                ),
-                              ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    ),
                               // FOLLOW BUTTON
                               if (!isFriend && post.authorId != widget.currentUserId)
                                 TextButton.icon(
