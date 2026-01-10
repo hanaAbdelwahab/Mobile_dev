@@ -26,7 +26,7 @@ import 'providers/StoryProvider.dart';
 import 'providers/post_provider.dart';
 import 'providers/repost_provider.dart';
 import 'providers/comment_provider.dart';
-
+import 'providers/FreelancingHubProvider.dart'; 
 // ================= Services =================
 import 'services/supabase_service.dart';
 
@@ -119,6 +119,7 @@ class MIUTechCircleApp extends StatelessWidget {
           ),
         ),
         ChangeNotifierProvider(create: (_) => CommentProvider()),
+        ChangeNotifierProvider(create: (_) => FreelancingHubProvider()),  // 🆕 ADD THIS
       ],
       child: MaterialApp(
         title: 'MIU TechCircle',
@@ -150,8 +151,6 @@ class MIUTechCircleApp extends StatelessWidget {
           '/login': (_) => const LoginPage(),
           '/signup': (_) => const SignUpPage(),
           '/forgot-password': (_) => const ForgotPasswordPage(),
-          '/reset-password': (_) => const ResetPasswordPage(),
-          '/email-verification': (_) => const EmailVerificationPage(email: ''),
           '/email-confirmed': (_) => const EmailConfirmedPage(),
           '/home': (_) => HomePage(currentUserId: _getCurrentUserId()),
           '/new-home': (_) => HomePage(currentUserId: _getCurrentUserId()),

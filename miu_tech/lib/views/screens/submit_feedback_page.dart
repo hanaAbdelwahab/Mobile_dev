@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 class SubmitFeedbackPage extends StatefulWidget {
-  const SubmitFeedbackPage({super.key});
+  const SubmitFeedbackPage({Key? key}) : super(key: key);
 
   @override
   State<SubmitFeedbackPage> createState() => _SubmitFeedbackPageState();
@@ -79,7 +79,7 @@ class _SubmitFeedbackPageState extends State<SubmitFeedbackPage> {
                     ),
                     const SizedBox(height: 24),
                     DropdownButtonFormField<String>(
-                      initialValue: _feedbackType,
+                      value: _feedbackType,
                       decoration: InputDecoration(
                         labelText: 'Feedback Type',
                         prefixIcon: const Icon(Icons.category_outlined, color: Colors.red),

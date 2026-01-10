@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class AccountSettingsPage extends StatefulWidget {
-  const AccountSettingsPage({super.key});
+  const AccountSettingsPage({Key? key}) : super(key: key);
 
   @override
   State<AccountSettingsPage> createState() => _AccountSettingsPageState();

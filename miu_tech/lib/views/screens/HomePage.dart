@@ -25,6 +25,7 @@ import '../widgets/competition_request_card.dart';
 import '../../models/FreelanceProjectModel.dart';
 import '../widgets/freelance_project_card.dart';
 import 'OtherUserProfilePage.dart'; 
+import '../../providers/FreelancingHubProvider.dart';
 final supabase = Supabase.instance.client;
 class FeedItem {
   final PostModel? post;
@@ -101,7 +102,17 @@ class _HomePageState extends State<HomePage> {
       );
 
       context.read<SavedPostProvider>().loadSavedPosts(widget.currentUserId);
+    final freelancingProvider = context.read<FreelancingHubProvider>();
+      freelancingProvider.loadProjects();
+      freelancingProvider.loadSavedProjects();        // ✅ No userId parameter
+      freelancingProvider.loadUserApplications();     // ✅ No userId parameter
     });
+     @override
+  void dispose() {
+    _scrollController.dispose();
+    _confettiController.dispose();
+    super.dispose();
+  }
   }
 
 Future<void> _refreshFeed() async {
@@ -304,84 +315,28 @@ if (_showForYou) {
       return false;
     }
   }
-List<FreelanceProjectModel> _getHardcodedProjects() {
-  return [
-    FreelanceProjectModel(
-      projectId: 1,
-      title: "Mobile App UI/UX Designer Needed",
-      companyName: "TechStart Inc.",
-      companyLogo: "https://via.placeholder.com/100",
-      postedAt: DateTime.now().subtract(const Duration(hours: 2)),
-      description: "We're looking for a talented UI/UX designer to redesign our mobile app. Must have experience with modern design principles and mobile-first approach.",
-      skillsNeeded: ["Figma", "UI/UX", "Mobile Design", "Prototyping"],
-      duration: "2-3 months",
-      deadline: DateTime.now().add(const Duration(days: 15)),
-      budgetRange: "\$3000-\$5000",
-      keyResponsibilities: "• Create wireframes and prototypes\n• Design user interface\n• Conduct user research\n• Collaborate with development team",
-    ),
-    FreelanceProjectModel(
-      projectId: 2,
-      title: "Flutter Developer for E-commerce App",
-      companyName: "ShopHub",
-      companyLogo: "https://via.placeholder.com/100",
-      postedAt: DateTime.now().subtract(const Duration(days: 1)),
-      description: "Seeking experienced Flutter developer to build a cross-platform e-commerce application with payment integration.",
-      skillsNeeded: ["Flutter", "Dart", "Firebase", "REST API"],
-      duration: "3-4 months",
-      deadline: DateTime.now().add(const Duration(days: 20)),
-      budgetRange: "\$5000-\$8000",
-      keyResponsibilities: "• Develop mobile app using Flutter\n• Integrate payment gateways\n• Implement real-time features\n• Write clean, maintainable code",
-    ),
-    FreelanceProjectModel(
-      projectId: 3,
-      title: "Social Media Content Creator",
-      companyName: "Digital Marketing Co.",
-      companyLogo: "https://via.placeholder.com/100",
-      postedAt: DateTime.now().subtract(const Duration(days: 3)),
-      description: "Need creative content creator for managing social media accounts and creating engaging posts.",
-      skillsNeeded: ["Content Writing", "Social Media", "Canva", "Photography"],
-      duration: "1 month",
-      deadline: DateTime.now().add(const Duration(days: 10)),
-      budgetRange: "\$1000-\$2000",
-      keyResponsibilities: "• Create daily social media posts\n• Design graphics\n• Engage with audience\n• Track analytics",
-    ),
-    FreelanceProjectModel(
-      projectId: 4,
-      title: "Full Stack Web Developer",
-      companyName: "WebSolutions Ltd.",
-      companyLogo: "https://via.placeholder.com/100",
-      postedAt: DateTime.now().subtract(const Duration(hours: 12)),
-      description: "Looking for full stack developer to build a modern web application with React and Node.js.",
-      skillsNeeded: ["React", "Node.js", "MongoDB", "TypeScript"],
-      duration: "4-6 months",
-      deadline: DateTime.now().add(const Duration(days: 25)),
-      budgetRange: "\$8000-\$12000",
-      keyResponsibilities: "• Build responsive web application\n• Design database schema\n• Implement authentication\n• Deploy and maintain application",
-    ),
-  ];
-}
-Widget _buildStatCard(String number, String label) {
-  return Column(
-    children: [
-      Text(
-        number,
-        style: const TextStyle(
-          color: Colors.white,
-          fontSize: 18,
-          fontWeight: FontWeight.bold,
+  Widget _buildStatCard(String number, String label) {
+    return Column(
+      children: [
+        Text(
+          number,
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+          ),
         ),
-      ),
-      const SizedBox(height: 4),
-      Text(
-        label,
-        style: TextStyle(
-          color: Colors.white.withOpacity(0.9),
-          fontSize: 11,
+        const SizedBox(height: 4),
+        Text(
+          label,
+          style: TextStyle(
+            color: Colors.white.withOpacity(0.9),
+            fontSize: 11,
+          ),
         ),
-      ),
-    ],
-  );
-}
+      ],
+    );
+  }
   // ========================= BUILD =========================
   @override
   Widget build(BuildContext context) {
@@ -505,104 +460,201 @@ Padding(
    
 const SizedBox(height: 20),
 
-// ================= CONDITIONAL CONTENT =================
-if (_showFreelancingHub) ...[
-  // GRADIENT BANNER FOR FREELANCING HUB
-  Container(
-    width: double.infinity,
-    padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
-    decoration: BoxDecoration(
-      gradient: LinearGradient(
-        colors: [
-          Colors.red.shade400,
-          Colors.red.shade600,
-          Colors.red.shade800,
-        ],
-        begin: Alignment.topLeft,
-        end: Alignment.bottomRight,
-      ),
-      borderRadius: BorderRadius.circular(20),
-      boxShadow: [
-        BoxShadow(
-          color: Colors.red.withOpacity(0.3),
-          blurRadius: 15,
-          offset: const Offset(0, 5),
-        ),
-      ],
-    ),
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.2),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: const Icon(
-                Icons.work_outline,
-                color: Colors.white,
-                size: 28,
-              ),
-            ),
-            const SizedBox(width: 12),
-            const Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    "Find Your Next Project",
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
+                // ================= CONDITIONAL CONTENT =================
+                if (_showFreelancingHub) ...[
+                  // 🆕 GRADIENT BANNER FOR FREELANCING HUB
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(
+                        vertical: 20, horizontal: 16),
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [
+                          Colors.red.shade400,
+                          Colors.red.shade600,
+                          Colors.red.shade800,
+                        ],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                      borderRadius: BorderRadius.circular(20),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.red.withOpacity(0.3),
+                          blurRadius: 15,
+                          offset: const Offset(0, 5),
+                        ),
+                      ],
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: Colors.white.withOpacity(0.2),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: const Icon(
+                                Icons.work_outline,
+                                color: Colors.white,
+                                size: 28,
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            const Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    "Find Your Next Project",
+                                    style: TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 20,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                  SizedBox(height: 4),
+                                  Text(
+                                    "Browse opportunities from top companies",
+                                    style: TextStyle(
+                                      color: Colors.white70,
+                                      fontSize: 13,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 16),
+
+                        // 🆕 DYNAMIC STATS FROM PROVIDER
+                        Consumer<FreelancingHubProvider>(
+                          builder: (context, provider, _) {
+                            final projectCount = provider.projects.length;
+                            return Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceAround,
+                              children: [
+                                _buildStatCard("$projectCount", "Active Projects"),
+                                Container(
+                                  width: 1,
+                                  height: 30,
+                                  color: Colors.white.withOpacity(0.3),
+                                ),
+                                _buildStatCard("150+", "Companies"),
+                                Container(
+                                  width: 1,
+                                  height: 30,
+                                  color: Colors.white.withOpacity(0.3),
+                                ),
+                                _buildStatCard("500+", "Freelancers"),
+                              ],
+                            );
+                          },
+                        ),
+                      ],
                     ),
                   ),
-                  SizedBox(height: 4),
-                  Text(
-                    "Browse opportunities from top companies",
-                    style: TextStyle(
-                      color: Colors.white70,
-                      fontSize: 13,
-                    ),
+
+                  const SizedBox(height: 20),
+
+                  // 🆕 REAL FREELANCING HUB PROJECTS FROM DATABASE (UUID VERSION)
+                  Consumer<FreelancingHubProvider>(
+                    builder: (context, provider, _) {
+                      if (provider.isLoadingProjects) {
+                        return const Center(
+                          child: Padding(
+                            padding: EdgeInsets.all(40),
+                            child: CircularProgressIndicator(),
+                          ),
+                        );
+                      }
+
+                      if (provider.projectsError != null) {
+                        return Center(
+                          child: Padding(
+                            padding: const EdgeInsets.all(20),
+                            child: Column(
+                              children: [
+                                const Icon(Icons.error_outline,
+                                    size: 48, color: Colors.red),
+                                const SizedBox(height: 12),
+                                Text(
+                                  'Error loading projects',
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    color: Colors.grey[700],
+                                  ),
+                                ),
+                                const SizedBox(height: 8),
+                                ElevatedButton.icon(
+                                  onPressed: () => provider.loadProjects(),
+                                  icon: const Icon(Icons.refresh),
+                                  label: const Text('Retry'),
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: Colors.red,
+                                    foregroundColor: Colors.white,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        );
+                      }
+
+                      if (provider.projects.isEmpty) {
+                        return Center(
+                          child: Padding(
+                            padding: const EdgeInsets.all(40),
+                            child: Column(
+                              children: [
+                                Icon(Icons.work_off,
+                                    size: 64, color: Colors.grey[400]),
+                                const SizedBox(height: 16),
+                                Text(
+                                  'No projects available',
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    color: Colors.grey[600],
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                                const SizedBox(height: 8),
+                                Text(
+                                  'Check back later for new opportunities',
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    color: Colors.grey[500],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        );
+                      }
+
+                      // ✅ Load application counts for all projects (UUID version)
+                      WidgetsBinding.instance.addPostFrameCallback((_) {
+                        final projectIds = provider.projects
+                            .map((p) => p.projectId)
+                            .toList();
+                        provider.loadApplicationCounts(projectIds);
+                      });
+
+                      return Column(
+                        children: provider.projects.map((project) {
+                          return FreelanceProjectCard(
+                            project: project,
+                            // ✅ No currentUserId parameter in UUID version
+                          );
+                        }).toList(),
+                      );
+                    },
                   ),
-                ],
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 16),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceAround,
-          children: [
-            _buildStatCard("24", "Active Projects"),
-            Container(
-              width: 1,
-              height: 30,
-              color: Colors.white.withOpacity(0.3),
-            ),
-            _buildStatCard("150+", "Companies"),
-            Container(
-              width: 1,
-              height: 30,
-              color: Colors.white.withOpacity(0.3),
-            ),
-            _buildStatCard("500+", "Freelancers"),
-          ],
-        ),
-      ],
-    ),
-  ),
-  
-  const SizedBox(height: 20),
-  
-  // FREELANCING HUB PROJECTS
-  ..._getHardcodedProjects().map((project) {
-    return FreelanceProjectCard(project: project);
-  }),
-] else ...[
+                ]else ...[
   // CATEGORIES (Only show in Discover/For You)
   SizedBox(
     height: 40,

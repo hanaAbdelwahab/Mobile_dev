@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 class ReportProblemPage extends StatefulWidget {
-  const ReportProblemPage({super.key});
+  const ReportProblemPage({Key? key}) : super(key: key);
 
   @override
   State<ReportProblemPage> createState() => _ReportProblemPageState();
@@ -80,7 +80,7 @@ class _ReportProblemPageState extends State<ReportProblemPage> {
                     ),
                     const SizedBox(height: 24),
                     DropdownButtonFormField<String>(
-                      initialValue: _problemType,
+                      value: _problemType,
                       decoration: InputDecoration(
                         labelText: 'Problem Type',
                         prefixIcon: const Icon(Icons.bug_report_outlined, color: Colors.red),
