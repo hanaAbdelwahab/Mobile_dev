@@ -134,9 +134,27 @@ class _HomePageState extends State<HomePage> {
       final announcements = await _fetchAnnouncements();
       feedItems.addAll(announcements.map((a) => FeedItem.fromAnnouncement(a)));
 
-      final requests = await CompetitionRequestController.fetchAllRequests();
-      feedItems.addAll(requests.map((r) => FeedItem.fromRequest(r)));
+      /*feedItems.addAll(requests.map((r) => FeedItem.fromRequest(r)));*/
+      if (!_showForYou && _selectedCategory == "Competitions") {
+  final requests = await CompetitionRequestController.fetchAllRequests();
+  feedItems.addAll(requests.map((r) => FeedItem.fromRequest(r)));
+}
+if (_showForYou) {
+  final friendIds = await _getFriendIds();
 
+  if (friendIds.isNotEmpty) {
+    final allRequests =
+        await CompetitionRequestController.fetchAllRequests();
+
+    final friendRequests = allRequests
+        .where((r) => friendIds.contains(r.userId))
+        .toList();
+
+    feedItems.addAll(
+      friendRequests.map((r) => FeedItem.fromRequest(r)),
+    );
+  }
+}
       feedItems.sort((a, b) => b.createdAt.compareTo(a.createdAt));
 
       return feedItems;
@@ -919,6 +937,27 @@ if (_showFreelancingHub) ...[
       return [];
     }
   }
+
+Future<List<int>> _getFriendIds() async {
+  final res = await supabase
+      .from('friendships')
+      .select('user_id, friend_id, status')
+      .or(
+        'and(user_id.eq.${widget.currentUserId},status.eq.accepted),'
+        'and(friend_id.eq.${widget.currentUserId},status.eq.accepted)',
+      );
+
+  List<int> ids = [];
+  for (final f in res as List) {
+    if (f['user_id'] != widget.currentUserId) {
+      ids.add(f['user_id']);
+    }
+    if (f['friend_id'] != widget.currentUserId) {
+      ids.add(f['friend_id']);
+    }
+  }
+  return ids;
+}
 
   Future<void> _ensureCommentCount(int postId) async {
     if (_commentCounts.containsKey(postId)) return;
