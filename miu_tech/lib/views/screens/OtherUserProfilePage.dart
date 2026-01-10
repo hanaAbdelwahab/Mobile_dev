@@ -1,9 +1,10 @@
+
 import 'package:flutter/material.dart';
 import 'send_post_dialog.dart';
 import 'chat_room_page.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:intl/intl.dart';
-
+import 'package:url_launcher/url_launcher.dart';
 
 final supabase = Supabase.instance.client;
 
@@ -33,7 +34,10 @@ class _OtherUserProfilePageState extends State<OtherUserProfilePage>
   late Animation<double> _fadeAnimation;
    late final String mockCurrentUserId;
 
-
+// Add these with other state variables (around line 40):
+bool _showAllPosts = false;
+bool _showAllComments = false;
+bool _showAllReposts = false;
   Map<String, dynamic>? user;
   List<Map<String, dynamic>> userPosts = [];
   List<Map<String, dynamic>> userComments = [];
@@ -44,6 +48,7 @@ List<Map<String, dynamic>> allUserReposts = [];
   bool loading = true;
   int followerCount = 0;
   int followingCount = 0;
+  String? userRole; // ADD THIS LINE
 
   // ✅ TAB CONTROLLER FOR ACTIVITY SECTION (EXACT FROM MYPROFILE)
   late TabController _activityTabController;
@@ -59,28 +64,32 @@ List<Map<String, dynamic>> allUserReposts = [];
   String? currentUsername;
   String? currentUserProfileUrl;
 
-  @override
-  void initState() {
-    super.initState();
-    mockCurrentUserId = widget.currentUserId;
-    // ✅ INITIALIZE TAB CONTROLLER (EXACT FROM MYPROFILE)
-    _activityTabController = TabController(length: 3, vsync: this);
-    _activityTabController.addListener(() {
-      if (_activityTabController.indexIsChanging) {
-        setState(() => _selectedActivityTab = _activityTabController.index);
-      }
-    });
-    
-    _animationController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 600),
-    );
-    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(parent: _animationController, curve: Curves.easeOut),
-    );
-    _initializeData();
-  }
-
+@override
+void initState() {
+  super.initState();
+  mockCurrentUserId = widget.currentUserId;
+  _activityTabController = TabController(length: 3, vsync: this);
+  _activityTabController.addListener(() {
+    if (_activityTabController.indexIsChanging) {
+      setState(() {
+        _selectedActivityTab = _activityTabController.index;
+        // ✅ ADD THESE LINES: Reset "show all" states when switching tabs
+        _showAllPosts = false;
+        _showAllComments = false;
+        _showAllReposts = false;
+      });
+    }
+  });
+  
+  _animationController = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 600),
+  );
+  _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+    CurvedAnimation(parent: _animationController, curve: Curves.easeOut),
+  );
+  _initializeData();
+}
   Future<void> _initializeData() async {
     await fetchCurrentUserData();
     await fetchUserAndPosts();
@@ -97,147 +106,276 @@ Future<void> fetchCurrentUserData() async {
       return;
     }
 
-    // FIX: Use correct column names (name instead of username, user_id instead of id)
     final userData = await supabase
         .from('users')
-        .select('name, profile_image') // Changed from username and profile_image_url
-        .eq('user_id', int.parse(mockCurrentUserId)) // Changed from id to user_id
+        .select('name, profile_image')
+        .eq('user_id', int.parse(mockCurrentUserId))
         .single();
 
     setState(() {
-      currentUsername = userData['name'] ?? 'Someone'; // Changed from username to name
-      currentUserProfileUrl = userData['profile_image']; // Changed from profile_image_url to profile_image
+      currentUsername = userData['name'] ?? 'Someone';
+      currentUserProfileUrl = userData['profile_image'];
     });
 
-    print('✅ Current user loaded: $currentUsername');
+    print('✅ Current user loaded: $currentUsername (ID: $mockCurrentUserId)');
   } catch (e) {
     print('⚠️ Error fetching current user data: $e');
     setState(() {
       currentUsername = 'Someone';
     });
   }
-}
-  @override
+}@override
   void dispose() {
     _activityTabController.dispose(); // ✅ DISPOSE TAB CONTROLLER
     _animationController.dispose();
     super.dispose();
   }
+Future<void> createNotification({
+  required String type,
+  required String title,
+  required String message,
+  String? postId,
+}) async {
+  try {
+    final username = currentUsername ?? 'Someone';
 
-   Future<void> createNotification({
-    required String type,
-    required String title,
-    required String message,
-    required String icon,
-    String? postId,
-  }) async {
-    try {
-      final username = currentUsername ?? 'Someone';
+    final notificationData = {
+      'user_id': int.parse(widget.userId),
+      'type': type,
+      'title': title, // ✅ INCLUDE TITLE
+      'body': message.replaceAll('null', username),
+      'is_read': false,
+      'created_at': DateTime.now().toIso8601String(),
+      'from_user_id': int.parse(mockCurrentUserId),
+    };
 
-      final notificationData = {
-        'user_id': widget.userId,
-        'actor_id': mockCurrentUserId,
-        'type': type,
-        'title': title,
-        'message': message.replaceAll('null', username),
-        'icon': icon,
-        'is_read': false,
-        'profile_url': currentUserProfileUrl,
-      };
+    print('📤 Creating notification: $notificationData');
+    
+    final result = await supabase.from('notifications').insert(notificationData).select();
 
-      if (type == 'follow_request') {
-        notificationData['status'] = null;
-      }
-
-      await supabase.from('notifications').insert(notificationData);
-
-      print('✅ Notification created: $type - $message');
-    } catch (e) {
-      print('❌ Error creating notification: $e');
-    }
+    print('✅ Notification created successfully: $result');
+  } catch (e) {
+    print('❌ Error creating notification: $e');
+    print('Stack trace: ${StackTrace.current}');
   }
+}
 
-  Future<void> checkIfFollowing() async {
-    try {
-      final response = await supabase
-          .from('follows')
-          .select()
-          .eq('follower_id', mockCurrentUserId)
-          .eq('following_id', widget.userId)
-          .maybeSingle();
+Future<void> checkIfFollowing() async {
+  try {
+    // Check if there's a friendship record where current user is user_id and viewing user is friend_id
+    final response1 = await supabase
+        .from('friendships')
+        .select()
+        .eq('user_id', int.parse(mockCurrentUserId))
+        .eq('friend_id', int.parse(widget.userId))
+        .maybeSingle();
 
-      setState(() {
-        isFollowing = response != null;
-      });
-    } catch (e) {
-      print("⚠️ Error checking follow status: $e");
+    // Or check the reverse (viewing user is user_id and current user is friend_id)
+    final response2 = await supabase
+        .from('friendships')
+        .select()
+        .eq('user_id', int.parse(widget.userId))
+        .eq('friend_id', int.parse(mockCurrentUserId))
+        .maybeSingle();
+
+    setState(() {
+      isFollowing = (response1 != null && response1['status'] == 'accepted') ||
+                    (response2 != null && response2['status'] == 'accepted');
+    });
+  } catch (e) {
+    print("⚠️ Error checking follow status: $e");
+    setState(() => isFollowing = false);
+  }
+}
+
+Future<void> fetchFollowerCounts() async {
+  try {
+    // Count followers: people who have accepted friendship with this user
+    final followersData1 = await supabase
+        .from('friendships')
+        .select()
+        .eq('friend_id', int.parse(widget.userId))
+        .eq('status', 'accepted');
+
+    final followersData2 = await supabase
+        .from('friendships')
+        .select()
+        .eq('user_id', int.parse(widget.userId))
+        .eq('status', 'accepted');
+
+    // Use Set to avoid counting duplicates
+    final allFollowers = {
+      ...followersData1.map((f) => f['user_id']),
+      ...followersData2.map((f) => f['friend_id']),
+    };
+    allFollowers.remove(int.parse(widget.userId)); // Remove self
+
+    setState(() {
+      followerCount = allFollowers.length;
+      followingCount = 0; // ✅ REMOVE FOLLOWING COUNT
+    });
+
+    print('👥 Followers: $followerCount');
+  } catch (e) {
+    print('⚠️ Error fetching follower counts: $e');
+    setState(() {
+      followerCount = 0;
+      followingCount = 0;
+    });
+  }
+}
+Future<void> toggleFollow() async {
+  try {
+    print('🔄 Toggle follow called');
+    
+    // Check if already friends (accepted friendship)
+    final existingFriendship = await supabase
+        .from('friendships')
+        .select()
+        .or('and(user_id.eq.${int.parse(mockCurrentUserId)},friend_id.eq.${int.parse(widget.userId)}),and(user_id.eq.${int.parse(widget.userId)},friend_id.eq.${int.parse(mockCurrentUserId)})')
+        .maybeSingle();
+
+    if (existingFriendship != null) {
+      print('✅ Already friends, unfollowing...');
+      // Unfollow: delete the friendship
+      await supabase
+          .from('friendships')
+          .delete()
+          .or('and(user_id.eq.${int.parse(mockCurrentUserId)},friend_id.eq.${int.parse(widget.userId)}),and(user_id.eq.${int.parse(widget.userId)},friend_id.eq.${int.parse(mockCurrentUserId)})');
+      
       setState(() => isFollowing = false);
-    }
-  }
-
-  Future<void> fetchFollowerCounts() async {
-    try {
-      final followersData = await supabase
-          .from('follows')
-          .select()
-          .eq('following_id', widget.userId);
-
-      final followingData = await supabase
-          .from('follows')
-          .select()
-          .eq('follower_id', widget.userId);
-
-      setState(() {
-        followerCount = (followersData as List).length;
-        followingCount = (followingData as List).length;
-      });
-
-      print('👥 Followers: $followerCount, Following: $followingCount');
-    } catch (e) {
-      print('⚠️ Error fetching follower counts: $e');
-      setState(() {
-        followerCount = 0;
-        followingCount = 0;
-      });
-    }
-  }
-
-  Future<void> toggleFollow() async {
-    try {
-      if (isFollowing) {
-        await supabase.from('follows').delete().match({
-          'follower_id': mockCurrentUserId,
-          'following_id': widget.userId,
-        });
-        print('✅ Unfollowed');
-      } else {
-        await supabase.from('follows').insert({
-          'follower_id': mockCurrentUserId,
-          'following_id': widget.userId,
-        });
-
-        final username = currentUsername ?? 'Someone';
-
-        await createNotification(
-          type: 'follow_request',
-          title: 'New Follower',
-          message: '$username started following you',
-          icon: 'person',
-        );
-
-        print('✅ Followed');
-      }
-
-      setState(() {
-        isFollowing = !isFollowing;
-      });
-
       await fetchFollowerCounts();
-    } catch (e) {
-      print("❌ Error toggling follow: $e");
-      setState(() => isFollowing = !isFollowing);
+      _showSuccess('Unfollowed successfully');
+      return;
     }
+
+    // Check for ANY existing request (regardless of status) sent by me
+    final myExistingRequest = await supabase
+        .from('friendship_requests')
+        .select()
+        .eq('requester_id', int.parse(mockCurrentUserId))
+        .eq('receiver_id', int.parse(widget.userId))
+        .maybeSingle();
+
+    if (myExistingRequest != null) {
+      print('📋 Found my existing request: ${myExistingRequest}');
+      
+      if (myExistingRequest['status'] == 'pending') {
+        // Cancel pending request
+        print('🚫 Cancelling my pending request...');
+        await supabase
+            .from('friendship_requests')
+            .delete()
+            .eq('request_id', myExistingRequest['request_id']);
+        
+        // Delete the notification
+        await supabase
+            .from('notifications')
+            .delete()
+            .eq('user_id', int.parse(widget.userId))
+            .eq('from_user_id', int.parse(mockCurrentUserId))
+            .eq('type', 'follow_request');
+        
+        setState(() {});
+        _showSuccess('Request cancelled');
+        return;
+      } else {
+        // If rejected or accepted, delete it so we can send a new one
+        print('🔄 Deleting old request with status: ${myExistingRequest['status']}');
+        await supabase
+            .from('friendship_requests')
+            .delete()
+            .eq('request_id', myExistingRequest['request_id']);
+        // Continue to send new request below
+      }
+    }
+
+    // Check for request from them
+    final theirRequest = await supabase
+        .from('friendship_requests')
+        .select()
+        .eq('requester_id', int.parse(widget.userId))
+        .eq('receiver_id', int.parse(mockCurrentUserId))
+        .eq('status', 'pending')
+        .maybeSingle();
+
+    if (theirRequest != null) {
+      print('✅ Accepting their request...');
+      
+      // Update request to accepted
+      await supabase
+          .from('friendship_requests')
+          .update({
+            'status': 'accepted',
+            'updated_at': DateTime.now().toIso8601String()
+          })
+          .eq('request_id', theirRequest['request_id']);
+      
+      // Add to friendships table
+      await supabase.from('friendships').insert({
+        'user_id': int.parse(mockCurrentUserId),
+        'friend_id': int.parse(widget.userId),
+        'status': 'accepted',
+      });
+      
+      // Delete the request notification
+      await supabase
+          .from('notifications')
+          .delete()
+          .eq('user_id', int.parse(mockCurrentUserId))
+          .eq('from_user_id', int.parse(widget.userId))
+          .eq('type', 'follow_request');
+
+      // Send acceptance notification
+await supabase.from('notifications').insert({
+  'user_id': int.parse(widget.userId),
+  'type': 'follow_accepted',
+  'title': 'Friend Request Accepted',
+  'body': '${currentUsername ?? 'Someone'} accepted your follow request, you are now friends!!',
+  'is_read': false,
+  'from_user_id': int.parse(mockCurrentUserId),
+});
+      
+      setState(() => isFollowing = true);
+      await fetchFollowerCounts();
+      _showSuccess('Friend request accepted!');
+      return;
+    }
+
+    // No existing relationship - send new friend request
+    print('📝 Creating new friend request from $mockCurrentUserId to ${widget.userId}');
+    
+   // Create friendship request
+final insertedRequest = await supabase.from('friendship_requests').insert({
+  'requester_id': int.parse(mockCurrentUserId),
+  'receiver_id': int.parse(widget.userId),
+  'status': 'pending',
+}).select();
+
+    print('✅ Request created: $insertedRequest');
+
+    // Create notification
+final insertedNotification = await supabase.from('notifications').insert({
+  'user_id': int.parse(widget.userId),
+  'type': 'follow_request',
+  'title': 'New Follow Request',
+  'body': '${currentUsername ?? 'Someone'} wants to follow you',
+  'is_read': false,
+  'from_user_id': int.parse(mockCurrentUserId),
+}).select();
+
+    print('✅ Notification created: $insertedNotification');
+
+    setState(() {});
+    _showSuccess('Follow request sent!');
+
+  } catch (e) {
+    print("❌ Error toggling follow: $e");
+    print("Stack trace: ${StackTrace.current}");
+    _showError('Failed to process request. Please try again.');
   }
+}
+
 
 Future<void> fetchUserAndPosts() async {
   try {
@@ -267,7 +405,7 @@ Future<void> fetchUserAndPosts() async {
       print('⚠️ Error loading experiences: $e');
     }
 
-    // ✅ Fetch skills from skills table
+ // ✅ Fetch skills from skills table
     List<dynamic> skillsList = [];
     try {
       final skillsData = await supabase
@@ -279,6 +417,34 @@ Future<void> fetchUserAndPosts() async {
       print('✅ Loaded ${skillsList.length} skills');
     } catch (e) {
       print('⚠️ Error loading skills: $e');
+    }
+
+    // ✅ Fetch projects from projects table
+    List<dynamic> projectsList = [];
+    try {
+      final projectsData = await supabase
+          .from('projects')
+          .select('*')
+          .eq('user_id', int.parse(widget.userId))
+          .order('start_date', ascending: false);
+      projectsList = projectsData as List;
+      print('✅ Loaded ${projectsList.length} projects');
+    } catch (e) {
+      print('⚠️ Error loading projects: $e');
+    }
+
+    // ✅ Fetch licenses from licenses table
+    List<dynamic> licensesList = [];
+    try {
+      final licensesData = await supabase
+          .from('licenses')
+          .select('*')
+          .eq('user_id', int.parse(widget.userId))
+          .order('issue_date', ascending: false);
+      licensesList = licensesData as List;
+      print('✅ Loaded ${licensesList.length} licenses');
+    } catch (e) {
+      print('⚠️ Error loading licenses: $e');
     }
 
     // ✅ LOAD POSTS
@@ -299,43 +465,15 @@ Future<void> fetchUserAndPosts() async {
         ...fetchedUser,
         'experience': experienceList,
         'skills': skillsList,
+        'projects': projectsList,
+        'licenses': licensesList,
       };
       loading = false;
     });
-
     await checkIfFollowing();
     await fetchFollowerCounts();
 
-    // Load skill endorsements if skills exist
-    if (skillsList.isNotEmpty) {
-      final Map<String, bool> endorsementStatus = {};
 
-      for (var skill in skillsList) {
-        final skillName = skill['name'];
-        if (skillName != null) {
-          try {
-            final endorsement = await supabase
-                .from('skill_endorsements')
-                .select()
-                .eq('skill_name', skillName)
-                .eq('endorsed_user_id', int.parse(widget.userId))
-                .eq('endorser_user_id', int.parse(mockCurrentUserId))
-                .maybeSingle();
-
-            endorsementStatus[skillName] = endorsement != null;
-          } catch (e) {
-            print('⚠️ Error checking endorsement for $skillName: $e');
-            endorsementStatus[skillName] = false;
-          }
-        }
-      }
-
-      setState(() {
-        endorsedSkills = endorsementStatus;
-      });
-
-      print('✅ Loaded endorsement status: $endorsedSkills');
-    }
 
     _animationController.forward();
   } catch (e, stackTrace) {
@@ -357,77 +495,151 @@ Future<void> fetchUserAndPosts() async {
       loading = false;
     });
   }
-}// ✅ LOAD POSTS (EXACT FROM MYPROFILE)
- Future<void> _loadUserPosts() async {
+}
+Future<Map<String, dynamic>?> _checkFollowStatus() async {
   try {
-    final postsResponse = await supabase
-        .from('posts')
-        .select('post_id, content, created_at, author_id') // Use correct column names
-        .eq('author_id', int.parse(widget.userId)) // Parse to int
-        .order('created_at', ascending: false);
+    // Check if already friends
+    final friendship = await supabase
+        .from('friendships')
+        .select()
+        .or('and(user_id.eq.${int.parse(mockCurrentUserId)},friend_id.eq.${int.parse(widget.userId)}),and(user_id.eq.${int.parse(widget.userId)},friend_id.eq.${int.parse(mockCurrentUserId)})')
+        .maybeSingle();
 
-    print('📊 Posts found: ${(postsResponse as List).length}');
-
-    final List<Map<String, dynamic>> transformedPosts = [];
-
-    for (var post in postsResponse) {
-      final postId = post['post_id']; // Changed from id
-
-      // Rest of your code...
-      final likesData = await supabase.from('likes').select().eq('post_id', postId);
-      final likeCount = (likesData as List).length;
-
-      final userLike = await supabase
-          .from('likes')
-          .select()
-          .eq('post_id', postId)
-          .eq('user_id', int.parse(mockCurrentUserId)) // Parse to int
-          .maybeSingle();
-
-      final commentsData =
-          await supabase.from('comments').select().eq('post_id', postId);
-      final commentCount = (commentsData as List).length;
-
-      final repostsData =
-          await supabase.from('reposts').select().eq('post_id', postId);
-      final repostCount = (repostsData as List).length;
-
-      final userRepost = await supabase
-          .from('reposts')
-          .select()
-          .eq('post_id', postId)
-          .eq('user_id', int.parse(mockCurrentUserId)) // Parse to int
-          .maybeSingle();
-
-      transformedPosts.add({
-        "id": postId,
-        "text": post['content'] ?? 'No content',
-        "image": false,
-        "reposter": "",
-        "comments": commentCount,
-        "likes": likeCount,
-        "reposts": repostCount,
-        "isLiked": userLike != null,
-        "isReposted": userRepost != null,
-        "postComments": [],
-        "created_at": post['created_at'],
-      });
+    if (friendship != null) {
+      return {'status': 'accepted', 'type': 'friendship'};
     }
 
-    if (mounted) {
-      setState(() {
-        userPosts = transformedPosts;
-      });
+    // Check if I sent a request
+    final myRequest = await supabase
+        .from('friendship_requests')
+        .select()
+        .eq('requester_id', int.parse(mockCurrentUserId))
+        .eq('receiver_id', int.parse(widget.userId))
+        .eq('status', 'pending')
+        .maybeSingle();
+
+    if (myRequest != null) {
+      return {
+        'status': 'pending',
+        'type': 'sent',
+        'requester_id': int.parse(mockCurrentUserId)
+      };
     }
+
+    // Check if they sent a request
+    final theirRequest = await supabase
+        .from('friendship_requests')
+        .select()
+        .eq('requester_id', int.parse(widget.userId))
+        .eq('receiver_id', int.parse(mockCurrentUserId))
+        .eq('status', 'pending')
+        .maybeSingle();
+
+    if (theirRequest != null) {
+      return {
+        'status': 'pending',
+        'type': 'received',
+        'requester_id': int.parse(widget.userId)
+      };
+    }
+
+    return null;
   } catch (e) {
-    print('❌ Error loading posts: $e');
-    if (mounted) {
-      setState(() {
-        userPosts = [];
-      });
-    }
+    print('⚠️ Error checking follow status: $e');
+    return null;
   }
 }
+
+Future<void> _loadUserPosts() async {
+  try {
+    List<Map<String, dynamic>> allUserPosts = [];
+
+    // 1. Load regular posts from 'posts' table
+    final regularPosts = await supabase
+        .from('posts')
+        .select('*, created_at')
+        .eq('author_id', int.parse(widget.userId))
+        .order('created_at', ascending: false);
+
+    for (var post in regularPosts) {
+      allUserPosts.add({
+        ...post,
+        'post_type': 'post',
+        'original_table': 'posts',
+      });
+    }
+
+    // 2. Load announcements - ONLY for non-Instructor/TA users
+    if (userRole?.toLowerCase() != 'instructor' &&
+        userRole?.toLowerCase() != 'ta') {
+      final announcements = await supabase
+          .from('announcement')
+          .select('*, created_at')
+          .eq('auth_id', int.parse(widget.userId))
+          .order('created_at', ascending: false);
+
+      for (var announcement in announcements) {
+        allUserPosts.add({
+          'post_id': announcement['announcement_id'],
+          'author_id': announcement['auth_id'],
+          'title': announcement['title'],
+          'content': announcement['description'],
+          'category_id': announcement['category_id'],
+          'created_at': announcement['created_at'],
+          'media_url': null,
+          'file_url': null,
+          'post_type': 'announcement',
+          'original_table': 'announcement',
+          'announcement_date': announcement['date'],
+          'announcement_time': announcement['time'],
+        });
+      }
+    }
+
+    // 3. Load competition requests - ONLY for non-Instructor/TA users
+    if (userRole?.toLowerCase() != 'instructor' &&
+        userRole?.toLowerCase() != 'ta') {
+      final competitionRequests = await supabase
+          .from('competition_requests')
+          .select('*, created_at')
+          .eq('user_id', int.parse(widget.userId))
+          .order('created_at', ascending: false);
+
+      for (var request in competitionRequests) {
+        allUserPosts.add({
+          'post_id': request['competition_id'],
+          'author_id': request['user_id'],
+          'title': request['title'],
+          'content': request['description'],
+          'category_id': null,
+          'created_at': request['created_at'],
+          'media_url': null,
+          'file_url': null,
+          'post_type': 'competition_request',
+          'original_table': 'competition_requests',
+          'needed_skills': request['needed_skills'],
+          'team_size': request['team_size'],
+        });
+      }
+    }
+
+    // 4. Sort all posts by created_at
+    allUserPosts.sort((a, b) {
+      final aDate = DateTime.parse(a['created_at']);
+      final bDate = DateTime.parse(b['created_at']);
+      return bDate.compareTo(aDate);
+    });
+
+    if (mounted) {
+      setState(() => userPosts = allUserPosts);
+      print('✅ Loaded ${allUserPosts.length} posts for user ${widget.userId}');
+    }
+  } catch (e) {
+    print('❌ Error loading user posts: $e');
+    if (mounted) setState(() => userPosts = []);
+  }
+}
+ 
   // ✅ NEW METHOD 1: Load ALL comments user made across platform
 
 // ✅ NEW METHOD 2: Load ALL reposts user made across platform
@@ -462,59 +674,57 @@ Future<void> _loadAllUserReposts() async {
 }
 
   // ✅ LOAD COMMENTS (EXACT FROM MYPROFILE)
-  Future<void> _loadUserComments() async {
-    try {
-      final data = await supabase
-          .from('comments')
-          .select('''
-          *,
-          posts!inner(id, content, user_id)
-        ''')
-          .eq('user_id', widget.userId)
-          .order('created_at', ascending: false);
+Future<void> _loadUserComments() async {
+  try {
+    final data = await supabase
+        .from('comments')
+        .select('''
+        *,
+        posts!inner(post_id, title, content, author_id)
+      ''')
+        .eq('user_id', int.parse(widget.userId))
+        .order('created_at', ascending: false);
 
-      if (mounted) {
-        setState(() {
-          userComments = List<Map<String, dynamic>>.from(data);
-        });
-      }
-    } catch (e) {
-      print('Error loading comments: $e');
-      if (mounted) {
-        setState(() {
-          userComments = [];
-        });
-      }
+    if (mounted) {
+      setState(() {
+        userComments = List<Map<String, dynamic>>.from(data);
+      });
+    }
+  } catch (e) {
+    print('Error loading comments: $e');
+    if (mounted) {
+      setState(() {
+        userComments = [];
+      });
     }
   }
-
+}
   // ✅ LOAD REPOSTS (EXACT FROM MYPROFILE)
-  Future<void> _loadUserReposts() async {
-    try {
-      final data = await supabase
-          .from('reposts')
-          .select('''
-          *,
-          posts!inner(id, content, user_id, created_at)
-        ''')
-          .eq('user_id', widget.userId)
-          .order('created_at', ascending: false);
+Future<void> _loadUserReposts() async {
+  try {
+    final data = await supabase
+        .from('reposts')
+        .select('''
+        *,
+        posts!inner(post_id, title, content, author_id, created_at, media_url)
+      ''')
+        .eq('user_id', int.parse(widget.userId))
+        .order('created_at', ascending: false);
 
-      if (mounted) {
-        setState(() {
-          userReposts = List<Map<String, dynamic>>.from(data);
-        });
-      }
-    } catch (e) {
-      print('Error loading reposts: $e');
-      if (mounted) {
-        setState(() {
-          userReposts = [];
-        });
-      }
+    if (mounted) {
+      setState(() {
+        userReposts = List<Map<String, dynamic>>.from(data);
+      });
+    }
+  } catch (e) {
+    print('Error loading reposts: $e');
+    if (mounted) {
+      setState(() {
+        userReposts = [];
+      });
     }
   }
-
+}
   Future<void> _handleLike(int postIndex) async {
     final post = userPosts[postIndex];
     final postId = post['id'];
@@ -544,7 +754,6 @@ Future<void> _loadAllUserReposts() async {
           type: 'like',
           title: 'New Like',
           message: '$username liked your post',
-          icon: 'favorite',
           postId: postId,
         );
 
@@ -587,7 +796,6 @@ Future<void> _loadAllUserReposts() async {
           type: 'repost',
           title: 'New Repost',
           message: '$username reposted your post',
-          icon: 'repeat',
           postId: postId,
         );
 
@@ -1056,259 +1264,30 @@ Widget _buildAllRepostItem(Map<String, dynamic> repost) {
   );
 }
 
-  @override
-  Widget build(BuildContext context) {
-    if (loading) {
-      return Scaffold(
-        backgroundColor: const Color(0xFFF3F2EF),
-        body: Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              SizedBox(
-                width: 40,
-                height: 40,
-                child: CircularProgressIndicator(
-                  color: primaryRed,
-                  strokeWidth: 2.5,
-                ),
-              ),
-              const SizedBox(height: 16),
-              Text(
-                'Loading profile...',
-                style: TextStyle(
-                  color: Colors.grey[600],
-                  fontSize: 14,
-                  fontWeight: FontWeight.w400,
-                ),
-              ),
-            ],
-          ),
-        ),
-      );
-    }
-
+ @override
+Widget build(BuildContext context) {
+  if (loading) {
     return Scaffold(
       backgroundColor: const Color(0xFFF3F2EF),
-      body: FadeTransition(
-        opacity: _fadeAnimation,
-        child: CustomScrollView(
-          slivers: [
-            // ✅ COPIED APPBAR STYLE
-            SliverAppBar(
-              pinned: false,
-              backgroundColor: Colors.white,
-              elevation: 0,
-              leading: IconButton(
-                icon: const Icon(Icons.arrow_back, color: Colors.black, size: 24),
-                onPressed: () => _onBackTapped(context),
+      body: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            SizedBox(
+              width: 40,
+              height: 40,
+              child: CircularProgressIndicator(
+                color: primaryRed,
+                strokeWidth: 2.5,
               ),
             ),
-
-            SliverToBoxAdapter(
-              child: Column(
-                children: [
-                  // ✅ COPIED PROFILE HEADER CARD STYLE
-                  Container(
-                    color: Colors.white,
-                    child: Column(
-                      children: [
-                        // ✅ Cover area with gradient (EXACT STYLE FROM MYPROFILE)
-                        Stack(
-                          clipBehavior: Clip.none,
-                          children: [
-                            // Cover image with gradient
-                            Container(
-                              height: 120,
-                              decoration: BoxDecoration(
-                                gradient: LinearGradient(
-                                  begin: Alignment.topLeft,
-                                  end: Alignment.bottomRight,
-                                  colors: [
-                                    primaryRed.withOpacity(0.85),
-                                    darkRed,
-                                  ],
-                                ),
-                              ),
-                            ),
-                            // Avatar positioned at bottom of cover
-                            Positioned(
-                              left: 16,
-                              bottom: -50,
-                              child: Container(
-                                decoration: BoxDecoration(
-                                  shape: BoxShape.circle,
-                                  border: Border.all(
-                                    color: Colors.white,
-                                    width: 4,
-                                  ),
-                                ),
-                                child: CircleAvatar(
-                                  radius: 60,
-                                  backgroundColor: primaryRed,
-                                  child: Text(
-                                    (user!['name'] ?? 'U') // Changed from username
-      .split(' ')
-      .map((e) => e.isNotEmpty ? e[0] : '')
-      .take(2)
-      .join()
-      .toUpperCase(),
-                                    style: const TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 36,
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-
-                        const SizedBox(height: 56),
-
-                        // User info section
-                        Padding(
-                          padding: const EdgeInsets.fromLTRB(16, 0, 16, 20),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              // Name and headline
-                              Text(
-                                user!['name'] ?? 'Unknown User',
-                                style: const TextStyle(
-                                  fontSize: 24,
-                                  fontWeight: FontWeight.w600,
-                                  color: Colors.black,
-                                  height: 1.3,
-                                ),
-                              ),
-                              const SizedBox(height: 4),
-                              Text(
-                                user!['role'] ?? 'No Role',
-                                style: const TextStyle(
-                                  fontSize: 16,
-                                  color: Colors.black,
-                                  fontWeight: FontWeight.w400,
-                                  height: 1.4,
-                                ),
-                              ),
-                              const SizedBox(height: 12),
-
-                              // Connections count
-                              InkWell(
-                                onTap: () {
-                                  print(
-                                      '👥 Followers: $followerCount, Following: $followingCount');
-                                },
-                                child: Text(
-                                  followerCount == 0
-                                      ? "No connections"
-                                      : "$followerCount connection${followerCount != 1 ? 's' : ''}",
-                                  style: TextStyle(
-                                    fontSize: 14,
-                                    color: Colors.grey[700],
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                              ),
-
-                              const SizedBox(height: 20),
-
-                              // ✅ ACTION BUTTONS - EXACT STYLE FROM MYPROFILE
-                              Row(
-                                children: [
-                                  Expanded(
-                                    child: ElevatedButton.icon(
-                                      onPressed: toggleFollow,
-                                      icon: Icon(
-                                        isFollowing
-                                            ? Icons.check
-                                            : Icons.person_add_outlined,
-                                        size: 18,
-                                      ),
-                                      label: Text(
-                                          isFollowing ? "Following" : "Connect"),
-                                      style: ElevatedButton.styleFrom(
-                                        backgroundColor: isFollowing
-                                            ? Colors.white
-                                            : primaryRed,
-                                        foregroundColor:
-                                            isFollowing ? primaryRed : Colors.white,
-                                        elevation: 0,
-                                        padding: const EdgeInsets.symmetric(
-                                            vertical: 14),
-                                        shape: RoundedRectangleBorder(
-                                          borderRadius: BorderRadius.circular(30),
-                                          side: isFollowing
-                                              ? BorderSide(
-                                                  color: primaryRed, width: 1.5)
-                                              : BorderSide.none,
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                  const SizedBox(width: 8),
-                                  Expanded(
-                                    child: OutlinedButton.icon(
-                                      onPressed: _onMessageTapped,
-                                      icon: const Icon(Icons.mail_outline,
-                                          size: 18),
-                                      label: const Text("Message"),
-                                      style: OutlinedButton.styleFrom(
-                                        foregroundColor: primaryRed,
-                                        padding: const EdgeInsets.symmetric(
-                                            vertical: 14),
-                                        side:
-                                            BorderSide(color: primaryRed, width: 1.5),
-                                        shape: RoundedRectangleBorder(
-                                          borderRadius: BorderRadius.circular(30),
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-
-                  const SizedBox(height: 8),
-
-                  // About section card
-                 if (user!['bio'] != null && (user!['bio'] as String).isNotEmpty)
-  _buildAboutCard(),
-
-const SizedBox(height: 8),
-
-// ✅✅✅ NEW: ALL COMMENTS AND REPOSTS SECTION
-_buildAllActivityCard(),
-
-const SizedBox(height: 8),
-
-// ✅✅✅ ACTIVITY SECTION WITH TABS
-_buildActivityCard(),
-
-                  const SizedBox(height: 8),
-
-                  // Experience section
-                  if (user!['experience'] != null &&
-                      (user!['experience'] as List).isNotEmpty)
-                    _buildExperienceCard(),
-
-
-                  const SizedBox(height: 8),
-
-                  // Skills section
-                  if (user!['skills'] != null &&
-                      (user!['skills'] as List).isNotEmpty)
-                    _buildSkillsCard(),
-
-                  const SizedBox(height: 20),
-                ],
+            const SizedBox(height: 16),
+            Text(
+              'Loading profile...',
+              style: TextStyle(
+                color: Colors.grey[600],
+                fontSize: 14,
+                fontWeight: FontWeight.w400,
               ),
             ),
           ],
@@ -1317,6 +1296,269 @@ _buildActivityCard(),
     );
   }
 
+  return Scaffold(
+    backgroundColor: const Color(0xFFF3F2EF),
+    body: FadeTransition(
+      opacity: _fadeAnimation,
+      child: CustomScrollView(
+        slivers: [
+          // ✅ COPIED APPBAR STYLE
+          SliverAppBar(
+            pinned: false,
+            backgroundColor: Colors.white,
+            elevation: 0,
+            leading: IconButton(
+              icon: const Icon(Icons.arrow_back, color: Colors.black, size: 24),
+              onPressed: () => _onBackTapped(context),
+            ),
+          ),
+
+          SliverToBoxAdapter(
+            child: Column(
+              children: [
+                // ✅ COPIED PROFILE HEADER CARD STYLE
+                Container(
+                  color: Colors.white,
+                  child: Column(
+                    children: [
+                      // ✅ Cover area with gradient (EXACT STYLE FROM MYPROFILE)
+                      Stack(
+                        clipBehavior: Clip.none,
+                        children: [
+                          // Cover image with gradient
+                          Container(
+                            height: 120,
+                            decoration: BoxDecoration(
+                              gradient: user!['cover_image'] != null && 
+                                  user!['cover_image'].toString().isNotEmpty
+                                  ? null
+                                  : LinearGradient(
+                                      colors: [Colors.grey[800]!, Colors.grey[600]!],
+                                      begin: Alignment.topLeft,
+                                      end: Alignment.bottomRight,
+                                    ),
+                              image: (user!['cover_image'] != null && 
+                                  user!['cover_image'].toString().isNotEmpty)
+                                  ? DecorationImage(
+                                      image: NetworkImage(user!['cover_image']),
+                                      fit: BoxFit.cover,
+                                    )
+                                  : null,
+                            ),
+                          ),
+                          // Avatar positioned at bottom of cover
+                          Positioned(
+                            left: 16,
+                            bottom: -50,
+                            child: Container(
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                border: Border.all(
+                                  color: Colors.white,
+                                  width: 4,
+                                ),
+                              ),
+                              child: CircleAvatar(
+                                radius: 60,
+                                backgroundColor: Colors.grey[200],
+                                backgroundImage: (user!['profile_image'] != null && 
+                                    user!['profile_image'].toString().isNotEmpty)
+                                    ? NetworkImage(user!['profile_image'])
+                                    : null,
+                                child: (user!['profile_image'] == null || 
+                                    user!['profile_image'].toString().isEmpty)
+                                    ? const Icon(Icons.person, size: 60)
+                                    : null,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+
+                      const SizedBox(height: 56),
+
+                      // User info section
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(16, 0, 16, 20),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            // Name and headline
+                            Text(
+                              user!['name'] ?? 'Unknown User',
+                              style: const TextStyle(
+                                fontSize: 24,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            if (user!['role'] != null)
+                              Text(
+                                user!['role'],
+                                style: TextStyle(fontSize: 15, color: Colors.grey[700]),
+                              ),
+                            if (user!['department'] != null)
+                              Text(
+                                'Department: ${user!['department']}',
+                                style: TextStyle(fontSize: 13, color: Colors.grey[600]),
+                              ),
+                            if (user!['academic_year'] != null)
+                              Text(
+                                'Year: ${user!['academic_year']}',
+                                style: TextStyle(fontSize: 13, color: Colors.grey[600]),
+                              ),
+                            const SizedBox(height: 12),
+
+                            // Connections count
+                           // Connections count
+Text(
+  '$followerCount followers',
+  style: const TextStyle(
+    fontSize: 14,
+    color: Color(0xFFDC143C),
+    fontWeight: FontWeight.w600,
+  ),
+),
+
+                            const SizedBox(height: 16),
+
+// ✅ ACTION BUTTONS - Follow/Unfollow only (no message)
+FutureBuilder<Map<String, dynamic>?>(
+  future: _checkFollowStatus(),
+  builder: (context, snapshot) {
+    // Force rebuild when data changes
+    if (!snapshot.hasData && snapshot.connectionState == ConnectionState.waiting) {
+      return SizedBox(
+        width: double.infinity,
+        child: ElevatedButton.icon(
+          onPressed: null,
+          icon: const SizedBox(
+            width: 18,
+            height: 18,
+            child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+          ),
+          label: const Text('Loading...'),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: Colors.grey[300],
+            foregroundColor: Colors.grey[700],
+            elevation: 0,
+            padding: const EdgeInsets.symmetric(vertical: 12),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(20),
+            ),
+          ),
+        ),
+      );
+    }
+
+final friendshipData = snapshot.data;
+final String? status = friendshipData?['status'];
+final String? type = friendshipData?['type'];
+
+String buttonText = 'Follow';
+IconData buttonIcon = Icons.person_add_outlined;
+Color bgColor = const Color(0xFFDC143C);
+Color fgColor = Colors.white;
+
+if (status == 'accepted') {
+  buttonText = 'Following';
+  buttonIcon = Icons.check;
+  bgColor = Colors.white;
+  fgColor = const Color(0xFFDC143C);
+} else if (status == 'pending' && type == 'sent') {
+  buttonText = 'Pending';
+  buttonIcon = Icons.schedule;
+  bgColor = Colors.grey[300]!;
+  fgColor = Colors.grey[700]!;
+} else if (status == 'pending' && type == 'received') {
+  buttonText = 'Accept Request';
+  buttonIcon = Icons.person_add;
+  bgColor = Colors.green;
+  fgColor = Colors.white;
+}
+
+    return SizedBox(
+      width: double.infinity,
+      child: ElevatedButton.icon(
+        onPressed: () async {
+          await toggleFollow();
+          // Force rebuild after action
+          setState(() {});
+        },
+        icon: Icon(buttonIcon, size: 18),
+        label: Text(buttonText),
+        style: ElevatedButton.styleFrom(
+          backgroundColor: bgColor,
+          foregroundColor: fgColor,
+          elevation: 0,
+          padding: const EdgeInsets.symmetric(vertical: 12),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+            side: (status == 'accepted' || (status == 'pending' && type == 'sent'))
+    ? BorderSide(color: fgColor == const Color(0xFFDC143C) ? const Color(0xFFDC143C) : Colors.grey[400]!, width: 1.5)
+    : BorderSide.none,
+          ),
+        ),
+      ),
+    );
+  },
+),
+                          ],
+                        ),
+                      
+                      ),
+                    ],
+                  ),
+                ),
+
+                const SizedBox(height: 8),
+
+                // About section card
+                if (user!['bio'] != null && (user!['bio'] as String).isNotEmpty)
+                  _buildAboutCard(),
+
+                const SizedBox(height: 8),
+
+                // ✅✅✅ ACTIVITY SECTION WITH TABS
+                _buildActivityCard(),
+
+                const SizedBox(height: 8),
+
+                // Experience section
+                if (user!['experience'] != null &&
+                    (user!['experience'] as List).isNotEmpty)
+                  _buildExperienceCard(),
+
+                const SizedBox(height: 8),
+
+                // Projects section
+                if (user!['projects'] != null &&
+                    (user!['projects'] as List).isNotEmpty)
+                  _buildProjectsCard(),
+
+                const SizedBox(height: 8),
+
+                // Licenses section
+                if (user!['licenses'] != null &&
+                    (user!['licenses'] as List).isNotEmpty)
+                  _buildLicensesCard(),
+
+                const SizedBox(height: 8),
+
+                // Skills section
+                if (user!['skills'] != null &&
+                    (user!['skills'] as List).isNotEmpty)
+                  _buildSkillsCard(),
+
+                const SizedBox(height: 20),
+              ],
+            ),
+          ),
+        ],
+      ),
+    ),
+  );
+}
   // ✅ EXACT CARD STYLE FROM MYPROFILE
   Widget _buildAboutCard() {
     return Container(
@@ -1350,89 +1592,781 @@ _buildActivityCard(),
   }
 
   // ✅✅✅ EXACT ACTIVITY CARD WITH TABS FROM MYPROFILE ✅✅✅
-  Widget _buildActivityCard() {
-    return Container(
-      width: double.infinity,
-      color: Colors.white,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Header
-          Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
+Widget _buildActivityCard() {
+  return Container(
+    color: Colors.white,
+    padding: const EdgeInsets.all(16),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const Text(
                   'Activity',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                ),
+                Text(
+                  '${userPosts.length + userComments.length + userReposts.length} activities',
+                  style: TextStyle(fontSize: 13, color: Colors.grey[600]),
+                ),
+              ],
+            ),
+          ],
+        ),
+        const SizedBox(height: 16),
+
+        TabBar(
+          controller: _activityTabController,
+          labelColor: const Color(0xFFDC143C),
+          unselectedLabelColor: Colors.grey[600],
+          indicatorColor: const Color(0xFFDC143C),
+          isScrollable: true,
+          tabs: [
+            Tab(text: 'Posts (${userPosts.length})'),
+            Tab(text: 'Comments (${userComments.length})'),
+            Tab(text: 'Reposts (${userReposts.length})'),
+          ],
+        ),
+
+        const SizedBox(height: 16),
+
+        // Tab Content
+        if (_selectedActivityTab == 0) ...[
+          if (userPosts.isEmpty)
+            Center(
+              child: Padding(
+                padding: const EdgeInsets.all(32),
+                child: Text(
+                  'No posts yet',
+                  style: TextStyle(color: Colors.grey[600]),
+                ),
+              ),
+            )
+          else ...[
+            // ✅ Show only latest post or all posts
+            ...(_showAllPosts ? userPosts : userPosts.take(1)).map((post) => _buildPostCardFromMyProfile(post)),
+            
+            // ✅ Show "View All" button if more than 1 post
+            if (userPosts.length > 1)
+              Center(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  child: TextButton(
+                    onPressed: () {
+                      setState(() => _showAllPosts = !_showAllPosts);
+                    },
+                    child: Text(
+                      _showAllPosts ? 'Show Less' : 'View All ${userPosts.length} Posts',
+                      style: const TextStyle(
+                        color: Color(0xFFDC143C),
+                        fontWeight: FontWeight.w600,
+                        fontSize: 14,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+          ],
+        ],
+
+        if (_selectedActivityTab == 1) ...[
+          if (userComments.isEmpty)
+            Center(
+              child: Padding(
+                padding: const EdgeInsets.all(32),
+                child: Text(
+                  'No comments yet',
+                  style: TextStyle(color: Colors.grey[600]),
+                ),
+              ),
+            )
+          else ...[
+            // ✅ Show only latest comment or all comments
+            ...(_showAllComments ? userComments : userComments.take(1)).map((comment) => _buildCommentCardFromMyProfile(comment)),
+            
+            // ✅ Show "View All" button if more than 1 comment
+            if (userComments.length > 1)
+              Center(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  child: TextButton(
+                    onPressed: () {
+                      setState(() => _showAllComments = !_showAllComments);
+                    },
+                    child: Text(
+                      _showAllComments ? 'Show Less' : 'View All ${userComments.length} Comments',
+                      style: const TextStyle(
+                        color: Color(0xFFDC143C),
+                        fontWeight: FontWeight.w600,
+                        fontSize: 14,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+          ],
+        ],
+
+        if (_selectedActivityTab == 2) ...[
+          if (userReposts.isEmpty)
+            Center(
+              child: Padding(
+                padding: const EdgeInsets.all(32),
+                child: Text(
+                  'No reposts yet',
+                  style: TextStyle(color: Colors.grey[600]),
+                ),
+              ),
+            )
+          else ...[
+            // ✅ Show only latest repost or all reposts
+            ...(_showAllReposts ? userReposts : userReposts.take(1)).map((repost) => _buildRepostCardFromMyProfile(repost)),
+            
+            // ✅ Show "View All" button if more than 1 repost
+            if (userReposts.length > 1)
+              Center(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  child: TextButton(
+                    onPressed: () {
+                      setState(() => _showAllReposts = !_showAllReposts);
+                    },
+                    child: Text(
+                      _showAllReposts ? 'Show Less' : 'View All ${userReposts.length} Reposts',
+                      style: const TextStyle(
+                        color: Color(0xFFDC143C),
+                        fontWeight: FontWeight.w600,
+                        fontSize: 14,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+          ],
+        ],
+      ],
+    ),
+  );
+}
+  // ✅ POST CARD - EXACT REPLICA FROM MYPROFILE
+Widget _buildPostCardFromMyProfile(Map<String, dynamic> post) {
+  final postType = post['post_type'] ?? 'post';
+  
+  if (postType == 'announcement') {
+    return _buildAnnouncementPostCard(post);
+  } else if (postType == 'competition_request') {
+    return _buildCompetitionRequestCard(post);
+  }
+
+  return StatefulBuilder(
+    builder: (context, setCardState) {
+      return FutureBuilder<List<int>>(
+        future: Future.wait([
+          _getPostLikeCount(post['post_id']),
+          _getPostCommentCount(post['post_id']),
+          _getPostRepostCount(post['post_id']),
+        ]),
+        builder: (context, snapshot) {
+          final counts = snapshot.data ?? [0, 0, 0];
+
+          return Card(
+            margin: const EdgeInsets.only(bottom: 16),
+            elevation: 0,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // USER INFO HEADER
+                  Row(
+                    children: [
+                      CircleAvatar(
+                        radius: 20,
+                        backgroundColor: Colors.grey[200],
+                        backgroundImage: (user!['profile_image'] != null && 
+                            user!['profile_image'].toString().isNotEmpty)
+                            ? NetworkImage(user!['profile_image'])
+                            : null,
+                        child: (user!['profile_image'] == null || 
+                            user!['profile_image'].toString().isEmpty)
+                            ? const Icon(Icons.person)
+                            : null,
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              user!['name'] ?? 'Unknown',
+                              style: const TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            Text(
+                              _formatDate(post['created_at']),
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: Colors.grey[600],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+
+                  // POST CONTENT
+                  if (post['content'] != null && post['content'].toString().isNotEmpty)
+                    Text(
+                      post['content'],
+                      style: TextStyle(fontSize: 14, color: Colors.grey[800]),
+                      maxLines: 3,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+
+                  // POST IMAGE
+                  if (post['media_url'] != null && 
+                      post['media_url'].toString().trim().isNotEmpty) ...[
+                    const SizedBox(height: 12),
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(12),
+                      child: Image.network(
+                        post['media_url'],
+                        width: double.infinity,
+                        fit: BoxFit.cover,
+                        errorBuilder: (context, error, stackTrace) {
+                          return const SizedBox.shrink();
+                        },
+                      ),
+                    ),
+                  ],
+
+                  const SizedBox(height: 12),
+                  Divider(height: 1, color: Colors.grey[300]),
+                  const SizedBox(height: 8),
+
+                  // INTERACTION STATS
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      if (counts[0] > 0)
+                        Row(
+                          children: [
+                            const Icon(
+                              Icons.favorite,
+                              color: Color(0xFFDC143C),
+                              size: 18,
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              '${counts[0]}',
+                              style: TextStyle(
+                                fontSize: 13,
+                                color: Colors.grey[700],
+                              ),
+                            ),
+                          ],
+                        )
+                      else
+                        const SizedBox(),
+                      Text(
+                        '${counts[1]} comment${counts[1] != 1 ? 's' : ''} · ${counts[2]} repost${counts[2] != 1 ? 's' : ''}',
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: Colors.grey[600],
+                          fontWeight: FontWeight.w400,
+                        ),
+                      ),
+                    ],
+                  ),
+
+                  const SizedBox(height: 8),
+                  Divider(height: 1, color: Colors.grey[300]),
+
+                  // ACTION BUTTONS (Read-only for other users)
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceAround,
+                    children: [
+                      TextButton.icon(
+                        onPressed: () {}, // Disabled for other users
+                        icon: Icon(
+                          Icons.favorite_border,
+                          color: Colors.grey[700],
+                          size: 20,
+                        ),
+                        label: Text(
+                          'Like',
+                          style: TextStyle(color: Colors.grey[700]),
+                        ),
+                      ),
+                      TextButton.icon(
+                        onPressed: () {}, // Disabled for other users
+                        icon: Icon(
+                          Icons.comment_outlined,
+                          color: Colors.grey[700],
+                          size: 20,
+                        ),
+                        label: Text(
+                          'Comment',
+                          style: TextStyle(color: Colors.grey[700]),
+                        ),
+                      ),
+                      TextButton.icon(
+                        onPressed: () {}, // Disabled for other users
+                        icon: Icon(
+                          Icons.repeat,
+                          color: Colors.grey[700],
+                          size: 20,
+                        ),
+                        label: Text(
+                          'Repost',
+                          style: TextStyle(color: Colors.grey[700]),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      );
+    },
+  );
+}
+
+// ✅ HELPER METHODS FOR POST INTERACTIONS
+Future<int> _getPostLikeCount(int postId) async {
+  try {
+    final result = await supabase
+        .from('likes')
+        .select('like_id')
+        .eq('post_id', postId);
+    return result.length;
+  } catch (e) {
+    print('Error getting like count: $e');
+    return 0;
+  }
+}
+
+Future<int> _getPostCommentCount(int postId) async {
+  try {
+    final result = await supabase
+        .from('comments')
+        .select('comment_id')
+        .eq('post_id', postId);
+    return result.length;
+  } catch (e) {
+    print('Error getting comment count: $e');
+    return 0;
+  }
+}
+
+Future<int> _getPostRepostCount(int postId) async {
+  try {
+    final result = await supabase
+        .from('reposts')
+        .select('id')
+        .eq('post_id', postId);
+    return result.length;
+  } catch (e) {
+    print('Error getting repost count: $e');
+    return 0;
+  }
+}
+
+// ✅ ANNOUNCEMENT CARD
+Widget _buildAnnouncementPostCard(Map<String, dynamic> announcement) {
+  return Card(
+    margin: const EdgeInsets.only(bottom: 16),
+    elevation: 0,
+    shape: RoundedRectangleBorder(
+      borderRadius: BorderRadius.circular(16),
+    ),
+    child: Padding(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFEEF2FF),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Icon(
+                  Icons.campaign,
+                  color: Color(0xFF6366F1),
+                  size: 20,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Announcement',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Color(0xFF6366F1),
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    Text(
+                      _formatDate(announcement['created_at']),
+                      style: TextStyle(fontSize: 11, color: Colors.grey[600]),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Text(
+            announcement['title'] ?? '',
+            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            announcement['content'] ?? '',
+            style: TextStyle(fontSize: 14, color: Colors.grey[800]),
+            maxLines: 3,
+            overflow: TextOverflow.ellipsis,
+          ),
+          if (announcement['announcement_date'] != null) ...[
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Icon(Icons.event, size: 16, color: Colors.grey[600]),
+                const SizedBox(width: 8),
+                Text(
+                  'Event: ${announcement['announcement_date']} at ${announcement['announcement_time']}',
+                  style: TextStyle(fontSize: 13, color: Colors.grey[700]),
+                ),
+              ],
+            ),
+          ],
+        ],
+      ),
+    ),
+  );
+}
+
+// ✅ COMPETITION REQUEST CARD
+Widget _buildCompetitionRequestCard(Map<String, dynamic> request) {
+  return Card(
+    margin: const EdgeInsets.only(bottom: 16),
+    elevation: 0,
+    shape: RoundedRectangleBorder(
+      borderRadius: BorderRadius.circular(16),
+    ),
+    child: Padding(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFE63946).withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Icon(
+                  Icons.group_add,
+                  color: Color(0xFFE63946),
+                  size: 20,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Competition Partner Request',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Color(0xFFE63946),
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    Text(
+                      _formatDate(request['created_at']),
+                      style: TextStyle(fontSize: 11, color: Colors.grey[600]),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Text(
+            request['title'] ?? '',
+            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            request['content'] ?? '',
+            style: TextStyle(fontSize: 14, color: Colors.grey[800]),
+            maxLines: 3,
+            overflow: TextOverflow.ellipsis,
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Icon(Icons.people, size: 16, color: Colors.grey[600]),
+              const SizedBox(width: 8),
+              Text(
+                'Team size: ${request['team_size']}',
+                style: TextStyle(fontSize: 13, color: Colors.grey[700]),
+              ),
+            ],
+          ),
+          if (request['needed_skills'] != null) ...[
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 6,
+              runSpacing: 6,
+              children: request['needed_skills']
+                  .toString()
+                  .split(',')
+                  .map(
+                    (skill) => Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 4,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.grey[100],
+                        borderRadius: BorderRadius.circular(4),
+                        border: Border.all(color: Colors.grey[300]!),
+                      ),
+                      child: Text(
+                        skill.trim(),
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: Colors.grey[700],
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ),
+                  )
+                  .toList(),
+            ),
+          ],
+        ],
+      ),
+    ),
+  );
+}
+
+// ✅ COMMENT CARD FROM MYPROFILE
+Widget _buildCommentCardFromMyProfile(Map<String, dynamic> comment) {
+  final post = comment['posts'];
+
+  return Card(
+    margin: const EdgeInsets.only(bottom: 16),
+    elevation: 0,
+    shape: RoundedRectangleBorder(
+      borderRadius: BorderRadius.circular(16),
+    ),
+    child: Padding(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              CircleAvatar(
+                radius: 16,
+                backgroundColor: Colors.grey[200],
+                backgroundImage: (user!['profile_image'] != null && 
+                    user!['profile_image'].toString().isNotEmpty)
+                    ? NetworkImage(user!['profile_image'])
+                    : null,
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  '${user!['name'] ?? 'Unknown'} commented',
+                  style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ),
+              Text(
+                _formatDate(comment['created_at']),
+                style: TextStyle(fontSize: 11, color: Colors.grey[600]),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.grey[100],
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Text(
+              comment['content'] ?? '',
+              style: TextStyle(fontSize: 13, color: Colors.grey[800]),
+            ),
+          ),
+          const SizedBox(height: 12),
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              border: Border.all(color: Colors.grey[300]!),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Original Post',
                   style: TextStyle(
-                    fontSize: 20,
+                    fontSize: 11,
+                    color: Colors.grey[600],
                     fontWeight: FontWeight.w600,
-                    color: Colors.black,
                   ),
                 ),
                 const SizedBox(height: 4),
-                Text(
-                  '$followerCount followers',
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: Colors.grey[700],
-                    fontWeight: FontWeight.w400,
+                if (post != null) ...[
+                  Text(
+                    post['title'] ?? post['content'] ?? '',
+                    style: const TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
                   ),
-                ),
-              ],
-            ),
-          ),
-
-          // ✅ TAB BAR (EXACT FROM MYPROFILE)
-          Container(
-            decoration: BoxDecoration(
-              border: Border(
-                bottom: BorderSide(color: Colors.grey[300]!, width: 1),
-              ),
-            ),
-            child: TabBar(
-              controller: _activityTabController,
-              indicatorColor: primaryRed,
-              indicatorWeight: 3,
-              labelColor: primaryRed,
-              unselectedLabelColor: Colors.grey[600],
-              labelStyle: const TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w600,
-              ),
-              unselectedLabelStyle: const TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w600,
-              ),
-              tabs: const [
-                Tab(text: 'Posts'),
-                Tab(text: 'Comments'),
-                Tab(text: 'Reposts'),
-              ],
-            ),
-          ),
-
-          // ✅ TAB CONTENT (EXACT FROM MYPROFILE)
-          SizedBox(
-            height: 400, // Fixed height for tab content
-            child: TabBarView(
-              controller: _activityTabController,
-              children: [
-                // Posts Tab
-                _buildPostsTab(),
-                // Comments Tab
-                _buildCommentsTab(),
-                // Reposts Tab
-                _buildRepostsTab(),
+                ] else
+                  const Text(
+                    "Post unavailable",
+                    style: TextStyle(color: Colors.red),
+                  ),
               ],
             ),
           ),
         ],
       ),
-    );
-  }
+    ),
+  );
+}
 
+// ✅ REPOST CARD FROM MYPROFILE
+Widget _buildRepostCardFromMyProfile(Map<String, dynamic> repost) {
+  final post = repost['posts'];
+
+  return Card(
+    margin: const EdgeInsets.only(bottom: 16),
+    elevation: 0,
+    shape: RoundedRectangleBorder(
+      borderRadius: BorderRadius.circular(16),
+    ),
+    child: Padding(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.repeat, color: Color(0xFFDC143C), size: 16),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  '${user!['name'] ?? 'Unknown'} reposted this',
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: Colors.grey[700],
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ),
+              Text(
+                _formatDate(repost['created_at']),
+                style: TextStyle(fontSize: 11, color: Colors.grey[600]),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              border: Border.all(color: Colors.grey[300]!),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: post == null
+                ? const Text("Original post unavailable")
+                : Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        post['title'] ?? post['content'] ?? '',
+                        style: const TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        post['content'] ?? '',
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: Colors.grey[800],
+                        ),
+                        maxLines: 3,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      if (post['media_url'] != null &&
+                          post['media_url'].toString().isNotEmpty) ...[
+                        const SizedBox(height: 8),
+                        Container(
+                          height: 150,
+                          decoration: BoxDecoration(
+                            color: Colors.grey[200],
+                            borderRadius: BorderRadius.circular(6),
+                            image: DecorationImage(
+                              image: NetworkImage(post['media_url']),
+                              fit: BoxFit.cover,
+                            ),
+                          ),
+                        ),
+                      ],
+                      const SizedBox(height: 8),
+                      Text(
+                        'Posted ${_formatDate(post['created_at'])}',
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: Colors.grey[600],
+                        ),
+                      ),
+                    ],
+                  ),
+          ),
+        ],
+      ),
+    ),
+  );
+}
+  
   // ✅ POSTS TAB (EXACT FROM MYPROFILE)
   Widget _buildPostsTab() {
     if (userPosts.isEmpty) {
@@ -1940,8 +2874,8 @@ _buildActivityCard(),
           const SizedBox(height: 16),
 
           // ✅✅✅ COMMENTS SECTION DIRECTLY BELOW POST ✅✅✅
-          FutureBuilder<List<Map<String, dynamic>>>(
-  future: _loadPostComments(postData['id']),
+  FutureBuilder<List<Map<String, dynamic>>>(
+  future: loadPostComments(postData['id']),
   builder: (context, snapshot) {
     final comments = snapshot.data ?? [];
     final hasComments = comments.isNotEmpty;
@@ -1983,7 +2917,7 @@ _buildActivityCard(),
           // LIMITED Comments list
           ...limitedComments.map((comment) {
             return _buildCommentItem(comment);
-          }),
+          }).toList(),
 
           // View more comments text
           if (comments.length > maxCommentsToShow)
@@ -2012,32 +2946,38 @@ _buildActivityCard(),
   }
 
   // ✅ LOAD COMMENTS FOR A SPECIFIC POST
-  Future<List<Map<String, dynamic>>> _loadPostComments(String postId) async {
-    try {
-      final response = await supabase
-          .from('comments')
-          .select('id, content, created_at, user_id, users(username)')
-          .eq('post_id', postId)
-          .order('created_at', ascending: true);
+Future<List<Map<String, dynamic>>> loadPostComments(int postId) async {
+  try {
+    final data = await supabase
+        .from('comments')
+        .select('''
+        comment_id,
+        content,
+        created_at,
+        user_id,
+        users:user_id (
+          name,
+          profile_image,
+          role,
+          department
+        )
+      ''')
+        .eq('post_id', postId)
+        .order('created_at', ascending: true);
 
-      return (response as List).map((comment) {
-        return {
-          'id': comment['id'],
-          'content': comment['content'],
-          'created_at': comment['created_at'],
-          'user_id': comment['user_id'],
-          'username': comment['users']['username'] ?? 'Unknown',
-        };
-      }).toList();
-    } catch (e) {
-      print('❌ Error loading comments: $e');
-      return [];
-    }
+    return List<Map<String, dynamic>>.from(data);
+  } catch (e) {
+    print('❌ Error loading comments: $e');
+    return [];
   }
-
+}
   // ✅ BUILD COMMENT ITEM (EXACT STYLE FROM SCREENSHOT)
   Widget _buildCommentItem(Map<String, dynamic> comment) {
-    final String username = comment['username'];
+final userData = comment['users'];
+final String username = userData != null ? (userData['name'] ?? 'Unknown') : 'Unknown';
+final String? userProfileImage = userData != null ? userData['profile_image'] : null;
+final String? userRole = userData != null ? userData['role'] : null;
+final String? userDept = userData != null ? userData['department'] : null;
     final String content = comment['content'];
     final String commentId = comment['id'];
     final String userId = comment['user_id'];
@@ -2056,18 +2996,23 @@ _buildActivityCard(),
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // Avatar
-          CircleAvatar(
-            radius: 20,
-            backgroundColor: isMyComment ? primaryRed : Colors.green,
-            child: Text(
-              username.split(' ').map((e) => e.isNotEmpty ? e[0] : '').take(2).join().toUpperCase(),
-              style: const TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.w600,
-                fontSize: 12,
-              ),
-            ),
+  CircleAvatar(
+  radius: 20,
+  backgroundColor: isMyComment ? primaryRed : Colors.green,
+  backgroundImage: userProfileImage != null && userProfileImage.isNotEmpty
+      ? NetworkImage(userProfileImage)
+      : null,
+  child: userProfileImage == null || userProfileImage.isEmpty
+      ? Text(
+          username.split(' ').map((e) => e.isNotEmpty ? e[0] : '').take(2).join().toUpperCase(),
+          style: const TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.w600,
+            fontSize: 12,
           ),
+        )
+      : null,
+),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
@@ -2546,12 +3491,32 @@ Widget _buildExperienceCard() {
                       color: Colors.grey[600],
                     ),
                   ),
-                  const SizedBox(width: 10),
+                  const SizedBox(width: 12),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
+                        Text(
+                          exp['title'] ?? '',
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.black,
+                            height: 1.2,
+                            letterSpacing: -0.2,
+                          ),
+                        ),
+                        const SizedBox(height: 3),
+                        Text(
+                          '${exp['company'] ?? ''}${exp['employment_type'] != null ? ' · ${exp['employment_type']}' : ''}',
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: Colors.grey[800],
+                            height: 1.2,
+                          ),
+                        ),
                         if (dateRange.isNotEmpty) ...[
+                          const SizedBox(height: 3),
                           Text(
                             dateRange,
                             style: TextStyle(
@@ -2560,9 +3525,20 @@ Widget _buildExperienceCard() {
                               height: 1.2,
                             ),
                           ),
-                          const SizedBox(height: 8),
+                        ],
+                        if (exp['location'] != null && exp['location'].toString().isNotEmpty) ...[
+                          const SizedBox(height: 3),
+                          Text(
+                            exp['location'],
+                            style: TextStyle(
+                              fontSize: 14,
+                              color: Colors.grey[600],
+                              height: 1.2,
+                            ),
+                          ),
                         ],
                         if (exp['description'] != null && exp['description'].toString().isNotEmpty) ...[
+                          const SizedBox(height: 8),
                           Text(
                             exp['description'],
                             style: TextStyle(
@@ -2571,9 +3547,9 @@ Widget _buildExperienceCard() {
                               height: 1.4,
                             ),
                           ),
-                          const SizedBox(height: 8),
                         ],
-                        if (exp['skills'] != null) ...[
+                        if (exp['skills'] != null && exp['skills'].toString().isNotEmpty) ...[
+                          const SizedBox(height: 8),
                           Row(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
@@ -2599,7 +3575,311 @@ Widget _buildExperienceCard() {
               ),
             ],
           );
-        }),
+        }).toList(),
+      ],
+    ),
+  );
+}
+Widget _buildProjectsCard() {
+  final projects = user!['projects'] as List? ?? [];
+  
+  if (projects.isEmpty) return const SizedBox.shrink();
+
+  return Container(
+    width: double.infinity,
+    color: Colors.white,
+    padding: const EdgeInsets.all(16),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Projects',
+          style: TextStyle(
+            fontSize: 20,
+            fontWeight: FontWeight.w600,
+            color: Colors.black,
+          ),
+        ),
+        const SizedBox(height: 20),
+        ...projects.asMap().entries.map((entry) {
+          final index = entry.key;
+          final project = entry.value;
+
+          String dateRange = '';
+          if (project['start_date'] != null) {
+            final startDate = DateTime.parse(project['start_date']);
+            final startFormatted = DateFormat('MMM yyyy').format(startDate);
+            
+            if (project['is_current'] == true) {
+              dateRange = '$startFormatted - Present';
+            } else if (project['end_date'] != null) {
+              final endDate = DateTime.parse(project['end_date']);
+              final endFormatted = DateFormat('MMM yyyy').format(endDate);
+              dateRange = '$startFormatted - $endFormatted';
+            } else {
+              dateRange = startFormatted;
+            }
+          }
+
+          final hasUrl = project['project_url'] != null && project['project_url'].toString().isNotEmpty;
+
+          return Column(
+            children: [
+              if (index > 0) const SizedBox(height: 20),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    width: 48,
+                    height: 48,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFE63946).withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: const Icon(
+                      Icons.folder_outlined,
+                      color: Color(0xFFE63946),
+                      size: 24,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                project['name'] ?? '',
+                                style: const TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+                            if (hasUrl)
+                              GestureDetector(
+                                onTap: () => _openFile(project['project_url']),
+                                child: Container(
+                                  padding: const EdgeInsets.all(4),
+                                  decoration: BoxDecoration(
+                                    color: Colors.grey[100],
+                                    borderRadius: BorderRadius.circular(4),
+                                  ),
+                                  child: const Icon(
+                                    Icons.open_in_new,
+                                    size: 16,
+                                    color: Color(0xFFE63946),
+                                  ),
+                                ),
+                              ),
+                          ],
+                        ),
+                        if (dateRange.isNotEmpty) ...[
+                          const SizedBox(height: 4),
+                          Row(
+                            children: [
+                              Text(
+                                dateRange,
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  color: Colors.grey[600],
+                                ),
+                              ),
+                              if (project['is_current'] == true) ...[
+                                const SizedBox(width: 8),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 6,
+                                    vertical: 2,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: Colors.green.withOpacity(0.1),
+                                    borderRadius: BorderRadius.circular(4),
+                                  ),
+                                  child: Text(
+                                    'In Progress',
+                                    style: TextStyle(
+                                      fontSize: 10,
+                                      color: Colors.green[700],
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ],
+                          ),
+                        ],
+                        if (project['description'] != null && project['description'].toString().isNotEmpty) ...[
+                          const SizedBox(height: 6),
+                          Text(
+                            project['description'],
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: Colors.grey[700],
+                              height: 1.4,
+                            ),
+                            maxLines: 3,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ],
+                        if (project['skills'] != null && project['skills'].toString().isNotEmpty) ...[
+                          const SizedBox(height: 8),
+                          Wrap(
+                            spacing: 6,
+                            runSpacing: 6,
+                            children: project['skills'].toString().split(',').map((skill) =>
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                  vertical: 4,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: Colors.grey[100],
+                                  borderRadius: BorderRadius.circular(4),
+                                  border: Border.all(color: Colors.grey[300]!),
+                                ),
+                                child: Text(
+                                  skill.trim(),
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    color: Colors.grey[700],
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              ),
+                            ).toList(),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          );
+        }).toList(),
+      ],
+    ),
+  );
+}
+
+// Add helper method for opening URLs
+Future<void> _openFile(String? url) async {
+  if (url == null || url.isEmpty) {
+    _showError("Invalid file link");
+    return;
+  }
+
+  final Uri uri = Uri.parse(url);
+  try {
+    if (!await launchUrl(uri, mode: LaunchMode.externalApplication)) {
+      _showError("Could not open the file");
+    }
+  } catch (e) {
+    print("Error launching URL: $e");
+    _showError("Error opening attachment");
+  }
+}
+Widget _buildLicensesCard() {
+  final licenses = user!['licenses'] as List? ?? [];
+  
+  if (licenses.isEmpty) return const SizedBox.shrink();
+
+  return Container(
+    width: double.infinity,
+    color: Colors.white,
+    padding: const EdgeInsets.all(16),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Licenses & certifications',
+          style: TextStyle(
+            fontSize: 20,
+            fontWeight: FontWeight.w600,
+            color: Colors.black,
+          ),
+        ),
+        const SizedBox(height: 20),
+        ...licenses.asMap().entries.map((entry) {
+          final index = entry.key;
+          final license = entry.value;
+
+          String issuedDate = '';
+          if (license['issue_date'] != null) {
+            final date = DateTime.parse(license['issue_date']);
+            issuedDate = 'Issued ${DateFormat('MMM yyyy').format(date)}';
+          }
+
+          return Column(
+            children: [
+              if (index > 0) ...[
+                const SizedBox(height: 16),
+                Divider(height: 1, color: Colors.grey[300]),
+                const SizedBox(height: 16),
+              ],
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    width: 48,
+                    height: 48,
+                    decoration: BoxDecoration(
+                      color: Colors.grey[100],
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: Icon(
+                      Icons.workspace_premium_outlined,
+                      size: 22,
+                      color: Colors.grey[600],
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          license['name'] ?? '',
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.black,
+                            height: 1.3,
+                          ),
+                        ),
+                        if (license['issuing_organization'] != null) ...[
+                          const SizedBox(height: 3),
+                          Text(
+                            license['issuing_organization'],
+                            style: TextStyle(
+                              fontSize: 14,
+                              color: Colors.grey[700],
+                              height: 1.3,
+                            ),
+                          ),
+                        ],
+                        if (issuedDate.isNotEmpty) ...[
+                          const SizedBox(height: 3),
+                          Text(
+                            issuedDate,
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: Colors.grey[600],
+                              height: 1.3,
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          );
+        }).toList(),
       ],
     ),
   );
@@ -2697,7 +3977,7 @@ Widget _buildExperienceCard() {
               ),
             ],
           );
-        }),
+        }).toList(),
       ],
     ),
   );
@@ -2736,11 +4016,12 @@ Widget _buildExperienceCard() {
                 Divider(height: 1, color: Colors.grey[300]),
                 const SizedBox(height: 16),
               ],
-              _buildSkillItem(
-                  skill['name'] ?? 'Skill', skill['description'], endorsements),
+             _buildSkillItem(
+    skill['name'] ?? 'Skill', 
+    skill['endorsement_info']),
             ],
           );
-        }),
+        }).toList(),
         if (hasMore) ...[
           const SizedBox(height: 20),
           Divider(height: 1, color: Colors.grey[300]),
@@ -2778,138 +4059,38 @@ Widget _buildExperienceCard() {
   );
 }
   // ✅ EXACT SKILL ITEM STYLE FROM MYPROFILE WITH ENDORSE BUTTON
-Widget _buildSkillItem(
-    String skillName, String? proficiencyLevel, int endorsements) {
-  final isEndorsed = endorsedSkills[skillName] ?? false;
-
+Widget _buildSkillItem(String skillName, String? endorsementInfo) {
   return Column(
     crossAxisAlignment: CrossAxisAlignment.start,
     children: [
       Text(
         skillName,
         style: const TextStyle(
-          fontSize: 16,
+          fontSize: 15,
           fontWeight: FontWeight.w600,
-          color: Colors.black,
-          height: 1.3,
         ),
       ),
-      if (proficiencyLevel != null && proficiencyLevel.isNotEmpty) ...[
+      if (endorsementInfo != null && endorsementInfo.isNotEmpty) ...[
         const SizedBox(height: 4),
-        Text(
-          'Proficiency: $proficiencyLevel',
-          style: TextStyle(
-            fontSize: 14,
-            color: Colors.grey[600],
-            height: 1.4,
-          ),
-        ),
-      ],
-      const SizedBox(height: 12),
-      Align(
-        alignment: Alignment.centerLeft,
-        child: Material(
-          color: Colors.transparent,
-          child: InkWell(
-            onTap: () async {
-              await _toggleSkillEndorsement(skillName);
-            },
-            borderRadius: BorderRadius.circular(16),
-            child: Container(
-              padding: const EdgeInsets.symmetric(
-                horizontal: 14,
-                vertical: 6,
-              ),
-              decoration: BoxDecoration(
-                color: isEndorsed ? primaryRed : Colors.transparent,
-                border: Border.all(
-                  color: isEndorsed ? primaryRed : Colors.grey[500]!,
-                  width: 1.5,
+        Row(
+          children: [
+            const Icon(Icons.verified, size: 16, color: Colors.grey),
+            const SizedBox(width: 4),
+            Expanded(
+              child: Text(
+                endorsementInfo,
+                style: TextStyle(
+                  fontSize: 13,
+                  color: Colors.grey[700],
                 ),
-                borderRadius: BorderRadius.circular(16),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(
-                    isEndorsed ? Icons.check : Icons.add,
-                    size: 16,
-                    color: isEndorsed ? Colors.white : Colors.grey[600],
-                  ),
-                  const SizedBox(width: 4),
-                  Text(
-                    isEndorsed ? 'Endorsed' : 'Endorse',
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                      color: isEndorsed ? Colors.white : Colors.grey[600],
-                    ),
-                  ),
-                ],
               ),
             ),
-          ),
+          ],
         ),
-      ),
+      ],
     ],
   );
 }
-  Future<void> _toggleSkillEndorsement(String skillName) async {
-    setState(() {
-      endorsedSkills[skillName] = !(endorsedSkills[skillName] ?? false);
-    });
-
-    try {
-      final isCurrentlyEndorsed = endorsedSkills[skillName] ?? false;
-
-      if (!isCurrentlyEndorsed) {
-        await supabase
-            .from('skill_endorsements')
-            .delete()
-            .eq('skill_name', skillName)
-            .eq('endorsed_user_id', widget.userId)
-            .eq('endorser_user_id', mockCurrentUserId);
-
-        print('✅ Removed endorsement for: $skillName');
-
-        if (mounted) {
-          _showSuccess('Removed endorsement for $skillName');
-        }
-      } else {
-        await supabase.from('skill_endorsements').insert({
-          'skill_name': skillName,
-          'endorsed_user_id': widget.userId,
-          'endorser_user_id': mockCurrentUserId,
-        });
-
-        final username = currentUsername ?? 'Someone';
-
-        await createNotification(
-          type: 'skill_endorsement',
-          title: 'New Skill Endorsement',
-          message: '$username endorsed your skill: $skillName',
-          icon: 'verified',
-        );
-
-        print('✅ Endorsed: $skillName');
-
-        if (mounted) {
-          _showSuccess('Endorsed $skillName');
-        }
-      }
-    } catch (e) {
-      print('❌ Error toggling endorsement: $e');
-
-      setState(() {
-        endorsedSkills[skillName] = !(endorsedSkills[skillName] ?? false);
-      });
-
-      if (mounted) {
-        _showError('Error: $e');
-      }
-    }
-  }
-
   // ✅ EXACT MODAL STYLE FROM MYPROFILE
 void _showAllSkills() {
   final skills = user!['skills'] as List;
@@ -2921,7 +4102,7 @@ void _showAllSkills() {
     shape: const RoundedRectangleBorder(
       borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
     ),
-    builder: (context) => SizedBox(
+    builder: (context) => Container(
       height: MediaQuery.of(context).size.height * 0.9,
       child: Column(
         children: [
@@ -2966,26 +4147,14 @@ void _showAllSkills() {
                   const SizedBox(height: 16),
                 ],
               ),
-              itemBuilder: (context, index) {
-                final skill = skills[index];
-                
-                int endorsements = 0;
-                if (skill['endorsement_info'] != null) {
-                  try {
-                    endorsements = skill['endorsement_info'] is int 
-                        ? skill['endorsement_info'] 
-                        : 0;
-                  } catch (e) {
-                    print('⚠️ Error parsing endorsement_info: $e');
-                  }
-                }
-                
-                return _buildSkillItem(
-                  skill['name'] ?? 'Skill',
-                  skill['proficiency_level'],
-                  endorsements,
-                );
-              },
+    itemBuilder: (context, index) {
+  final skill = skills[index];
+  
+  return _buildSkillItem(
+    skill['name'] ?? 'Skill',
+    skill['endorsement_info'],
+  );
+},
             ),
           ),
         ],
@@ -2993,33 +4162,5 @@ void _showAllSkills() {
     ),
   );
 }
- Widget _buildAllActivityCard() {
-  if (allUserComments.isEmpty && allUserReposts.isEmpty) {
-    return const SizedBox.shrink();
-  }
 
-  return Container(
-    width: double.infinity,
-    color: Colors.white,
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text('Comments & Reposts', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w600, color: Colors.black)),
-              const SizedBox(height: 4),
-              Text('${allUserComments.length + allUserReposts.length} total interactions', style: TextStyle(fontSize: 14, color: Colors.grey[600], fontWeight: FontWeight.w400)),
-            ],
-          ),
-        ),
-        const Divider(height: 1),
-        ..._buildCombinedActivity(),
-      ],
-    ),
-  );
-  
-}
 }

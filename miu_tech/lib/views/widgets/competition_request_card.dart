@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:confetti/confetti.dart';
 import '../../models/competition_request_model.dart';
-
+import '../screens/OtherUserProfilePage.dart';
 final supabase = Supabase.instance.client;
 
 class CompetitionRequestCard extends StatefulWidget {
@@ -148,61 +148,81 @@ Future<void> _cancelJoinRequest() async {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   // 🔝 Header
-                  Row(
-                    children: [
-                      CircleAvatar(
-                        radius: 22,
-                        backgroundImage: avatarUrl != null
-                            ? NetworkImage(avatarUrl)
-                            : null,
-                        child: avatarUrl == null
-                            ? const Icon(Icons.person)
-                            : null,
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: Text(
-                          userName,
-                          style: const TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 14,
-                          ),
-                        ),
-                      ),
-
-                      // ➕ / ✔ Button
-                     ElevatedButton(
-  onPressed: () {
-  if (_requested) {
-    _cancelJoinRequest();
-  } else {
-    _sendJoinRequest();
-  }
-},
-
-  style: ElevatedButton.styleFrom(
-    backgroundColor: _requested ? Colors.grey.shade300 : Colors.red,
-    foregroundColor:
-        _requested ? Colors.grey.shade700 : Colors.white,
-    elevation: _requested ? 0 : 2,
-    padding: const EdgeInsets.symmetric(
-      horizontal: 14,
-      vertical: 8,
+                 Row(
+  children: [
+    GestureDetector(
+      onTap: () {
+        // 🚀 Navigate to user profile
+        if (widget.request.userId != widget.currentUserId) {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => OtherUserProfilePage(
+                userId: widget.request.userId.toString(),
+                currentUserId: widget.currentUserId.toString(),
+              ),
+            ),
+          );
+        }
+      },
+      child: Row(
+        children: [
+          CircleAvatar(
+            radius: 22,
+            backgroundImage: avatarUrl != null
+                ? NetworkImage(avatarUrl)
+                : null,
+            child: avatarUrl == null
+                ? const Icon(Icons.person)
+                : null,
+          ),
+          const SizedBox(width: 10),
+          Text(
+            userName,
+            style: const TextStyle(
+              fontWeight: FontWeight.bold,
+              fontSize: 14,
+            ),
+          ),
+        ],
+      ),
     ),
-    shape: RoundedRectangleBorder(
-      borderRadius: BorderRadius.circular(20),
+
+    const Spacer(),
+
+    // ➕ / ✔ Button (زي ما هو)
+    ElevatedButton(
+      onPressed: () {
+        if (_requested) {
+          _cancelJoinRequest();
+        } else {
+          _sendJoinRequest();
+        }
+      },
+      style: ElevatedButton.styleFrom(
+        backgroundColor:
+            _requested ? Colors.grey.shade300 : Colors.red,
+        foregroundColor:
+            _requested ? Colors.grey.shade700 : Colors.white,
+        elevation: _requested ? 0 : 2,
+        padding: const EdgeInsets.symmetric(
+          horizontal: 14,
+          vertical: 8,
+        ),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(20),
+        ),
+      ),
+      child: Text(
+        _requested ? "Request Sent" : "Request to Join Team",
+        style: const TextStyle(
+          fontSize: 12,
+          fontWeight: FontWeight.w600,
+        ),
+      ),
     ),
-  ),
-  child: Text(
-  _requested ? "Request Sent" : "Request to Join Team",
-  style: const TextStyle(
-    fontSize: 12,
-    fontWeight: FontWeight.w600,
-  ),
+  ],
 ),
-),
-],
-                  ),
 
                   const SizedBox(height: 12),
 
