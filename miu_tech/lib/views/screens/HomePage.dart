@@ -64,6 +64,7 @@ class HomePage extends StatefulWidget {
   State<HomePage> createState() => _HomePageState();
 }
 // ==================== FOLLOW BUTTON WIDGET ====================
+// ==================== FOLLOW BUTTON WIDGET ====================
 class _FollowButton extends StatefulWidget {
   final int targetUserId;
   final String userName;
@@ -110,62 +111,12 @@ class _FollowButtonState extends State<_FollowButton> {
     final status = followStatus?['status'];
     final type = followStatus?['type'];
 
-    if (status == 'accepted') {
-      final confirm = await showDialog<bool>(
-        context: context,
-        builder: (context) => AlertDialog(
-          title: const Text('Unfollow'),
-          content: Text('Are you sure you want to unfollow ${widget.userName}?'),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context, false),
-              child: const Text('Cancel'),
-            ),
-            TextButton(
-              onPressed: () => Navigator.pop(context, true),
-              style: TextButton.styleFrom(foregroundColor: Colors.red),
-              child: const Text('Unfollow'),
-            ),
-          ],
-        ),
-      );
-
-      if (confirm == true) {
-        await _unfollowUser(widget.targetUserId, widget.userName);
-      }
-    } else if (status == 'pending' && type == 'sent') {
+    if (status == 'pending' && type == 'sent') {
       await _cancelRequest(widget.targetUserId, widget.userName);
     } else if (status == 'pending' && type == 'received') {
       await _acceptRequest(widget.targetUserId, widget.userName);
     } else {
       await _sendRequest(widget.targetUserId, widget.userName);
-    }
-  }
-
-  Future<void> _unfollowUser(int targetUserId, String userName) async {
-    try {
-      await supabase
-          .from('friendships')
-          .delete()
-          .or('and(user_id.eq.${widget.currentUserId},friend_id.eq.$targetUserId),and(user_id.eq.$targetUserId,friend_id.eq.${widget.currentUserId})');
-      
-      // Update provider
-      final provider = Provider.of<FriendshipProvider>(context, listen: false);
-      provider.updateStatus(targetUserId, null);
-      
-      widget.onFollowStatusChanged();
-      
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Unfollowed $userName'),
-            backgroundColor: Colors.orange,
-            duration: const Duration(seconds: 2),
-          ),
-        );
-      }
-    } catch (e) {
-      debugPrint('❌ Error unfollowing: $e');
     }
   }
 
@@ -338,19 +289,18 @@ class _FollowButtonState extends State<_FollowButton> {
         final status = followStatus?['status'];
         final type = followStatus?['type'];
 
+        // ✅ HIDE BUTTON IF ALREADY FOLLOWING
+        if (status == 'accepted') {
+          return const SizedBox.shrink();
+        }
+
         String buttonText = 'Follow';
         IconData buttonIcon = Icons.person_add_outlined;
         Color bgColor = const Color(0xFFDC143C);
         Color fgColor = Colors.white;
         Border? border;
 
-        if (status == 'accepted') {
-          buttonText = 'Following';
-          buttonIcon = Icons.check;
-          bgColor = Colors.white;
-          fgColor = const Color(0xFFDC143C);
-          border = Border.all(color: const Color(0xFFDC143C), width: 1.5);
-        } else if (status == 'pending' && type == 'sent') {
+        if (status == 'pending' && type == 'sent') {
           buttonText = 'Pending';
           buttonIcon = Icons.schedule;
           bgColor = Colors.grey[200]!;
@@ -399,6 +349,7 @@ class _FollowButtonState extends State<_FollowButton> {
     );
   }
 }
+
 class _HomePageState extends State<HomePage> {
   // Cache comment counts
   final Map<int, int> _commentCounts = {};
