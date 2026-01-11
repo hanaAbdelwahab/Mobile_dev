@@ -35,6 +35,14 @@ import 'services/supabase_service.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  await SystemChrome.setPreferredOrientations([
+  DeviceOrientation.portraitUp,
+  DeviceOrientation.portraitDown,
+  DeviceOrientation.landscapeLeft,
+  DeviceOrientation.landscapeRight,
+]);
+
 await dotenv.load(fileName: ".env");
   await Supabase.initialize(
     url: 'https://aadoraweupxxqnotvkyw.supabase.co',
