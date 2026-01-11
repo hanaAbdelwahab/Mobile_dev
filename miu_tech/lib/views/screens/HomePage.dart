@@ -13,6 +13,7 @@ import 'stories_row.dart';
 import 'package:provider/provider.dart';
 import '../../providers/post_provider.dart';
 import '../../providers/repost_provider.dart';
+import '../../providers/friendship_provider.dart';
 import '../../controllers/user_controller.dart';
 import 'comments_page.dart';
 import 'package:confetti/confetti.dart';
@@ -62,7 +63,342 @@ class HomePage extends StatefulWidget {
   @override
   State<HomePage> createState() => _HomePageState();
 }
+// ==================== FOLLOW BUTTON WIDGET ====================
+class _FollowButton extends StatefulWidget {
+  final int targetUserId;
+  final String userName;
+  final int currentUserId;
+  final VoidCallback onFollowStatusChanged;
 
+  const _FollowButton({
+    required this.targetUserId,
+    required this.userName,
+    required this.currentUserId,
+    required this.onFollowStatusChanged,
+  });
+
+  @override
+  State<_FollowButton> createState() => _FollowButtonState();
+}
+
+class _FollowButtonState extends State<_FollowButton> {
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadFollowStatus();
+  }
+
+  Future<void> _loadFollowStatus() async {
+    if (!mounted) return;
+    
+    setState(() => _isLoading = true);
+    
+    final provider = Provider.of<FriendshipProvider>(context, listen: false);
+    await provider.loadFriendshipStatus(widget.currentUserId, widget.targetUserId);
+    
+    if (mounted) {
+      setState(() => _isLoading = false);
+    }
+  }
+
+  Future<void> _handleAction() async {
+    final provider = Provider.of<FriendshipProvider>(context, listen: false);
+    final followStatus = provider.getCachedStatus(widget.targetUserId);
+    
+    final status = followStatus?['status'];
+    final type = followStatus?['type'];
+
+    if (status == 'accepted') {
+      final confirm = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Unfollow'),
+          content: Text('Are you sure you want to unfollow ${widget.userName}?'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Cancel'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(context, true),
+              style: TextButton.styleFrom(foregroundColor: Colors.red),
+              child: const Text('Unfollow'),
+            ),
+          ],
+        ),
+      );
+
+      if (confirm == true) {
+        await _unfollowUser(widget.targetUserId, widget.userName);
+      }
+    } else if (status == 'pending' && type == 'sent') {
+      await _cancelRequest(widget.targetUserId, widget.userName);
+    } else if (status == 'pending' && type == 'received') {
+      await _acceptRequest(widget.targetUserId, widget.userName);
+    } else {
+      await _sendRequest(widget.targetUserId, widget.userName);
+    }
+  }
+
+  Future<void> _unfollowUser(int targetUserId, String userName) async {
+    try {
+      await supabase
+          .from('friendships')
+          .delete()
+          .or('and(user_id.eq.${widget.currentUserId},friend_id.eq.$targetUserId),and(user_id.eq.$targetUserId,friend_id.eq.${widget.currentUserId})');
+      
+      // Update provider
+      final provider = Provider.of<FriendshipProvider>(context, listen: false);
+      provider.updateStatus(targetUserId, null);
+      
+      widget.onFollowStatusChanged();
+      
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Unfollowed $userName'),
+            backgroundColor: Colors.orange,
+            duration: const Duration(seconds: 2),
+          ),
+        );
+      }
+    } catch (e) {
+      debugPrint('❌ Error unfollowing: $e');
+    }
+  }
+
+  Future<void> _cancelRequest(int targetUserId, String userName) async {
+    try {
+      await supabase
+          .from('friendship_requests')
+          .delete()
+          .eq('requester_id', widget.currentUserId)
+          .eq('receiver_id', targetUserId)
+          .eq('status', 'pending');
+      
+      await supabase
+          .from('notifications')
+          .delete()
+          .eq('user_id', targetUserId)
+          .eq('from_user_id', widget.currentUserId)
+          .eq('type', 'follow_request');
+      
+      // Update provider
+      final provider = Provider.of<FriendshipProvider>(context, listen: false);
+      provider.updateStatus(targetUserId, null);
+      
+      widget.onFollowStatusChanged();
+      
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Request cancelled'),
+            backgroundColor: Colors.grey,
+            duration: Duration(seconds: 2),
+          ),
+        );
+      }
+    } catch (e) {
+      debugPrint('❌ Error cancelling request: $e');
+    }
+  }
+
+  Future<void> _sendRequest(int targetUserId, String userName) async {
+    try {
+      await supabase.from('friendship_requests').insert({
+        'requester_id': widget.currentUserId,
+        'receiver_id': targetUserId,
+        'status': 'pending',
+      });
+
+      final currentUserData = await supabase
+          .from('users')
+          .select('name')
+          .eq('user_id', widget.currentUserId)
+          .single();
+
+      final currentUserName = currentUserData['name'] ?? 'Someone';
+
+      await supabase.from('notifications').insert({
+        'user_id': targetUserId,
+        'type': 'follow_request',
+        'title': 'New Follow Request',
+        'body': '$currentUserName wants to follow you',
+        'is_read': false,
+        'from_user_id': widget.currentUserId,
+      });
+
+      // Update provider
+      final provider = Provider.of<FriendshipProvider>(context, listen: false);
+      provider.updateStatus(targetUserId, {'status': 'pending', 'type': 'sent'});
+      
+      widget.onFollowStatusChanged();
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Follow request sent to $userName'),
+            backgroundColor: Colors.green,
+            duration: const Duration(seconds: 2),
+          ),
+        );
+      }
+    } catch (e) {
+      debugPrint('❌ Error sending request: $e');
+    }
+  }
+
+  Future<void> _acceptRequest(int requesterId, String userName) async {
+    try {
+      await supabase
+          .from('friendship_requests')
+          .update({
+            'status': 'accepted',
+            'updated_at': DateTime.now().toIso8601String(),
+          })
+          .eq('requester_id', requesterId)
+          .eq('receiver_id', widget.currentUserId)
+          .eq('status', 'pending');
+
+      await supabase.from('friendships').insert({
+        'user_id': widget.currentUserId,
+        'friend_id': requesterId,
+        'status': 'accepted',
+      });
+
+      await supabase
+          .from('notifications')
+          .delete()
+          .eq('user_id', widget.currentUserId)
+          .eq('from_user_id', requesterId)
+          .eq('type', 'follow_request');
+
+      final currentUserData = await supabase
+          .from('users')
+          .select('name')
+          .eq('user_id', widget.currentUserId)
+          .single();
+
+      final currentUserName = currentUserData['name'] ?? 'Someone';
+
+      await supabase.from('notifications').insert({
+        'user_id': requesterId,
+        'type': 'follow_accepted',
+        'title': 'Friend Request Accepted',
+        'body': '$currentUserName accepted your follow request, you are now friends!!',
+        'is_read': false,
+        'from_user_id': widget.currentUserId,
+      });
+
+      // Update provider
+      final provider = Provider.of<FriendshipProvider>(context, listen: false);
+      provider.updateStatus(requesterId, {'status': 'accepted', 'type': 'friendship'});
+      
+      widget.onFollowStatusChanged();
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('You are now friends with $userName 🎉'),
+            backgroundColor: Colors.green,
+            duration: const Duration(seconds: 2),
+          ),
+        );
+      }
+    } catch (e) {
+      debugPrint('❌ Error accepting request: $e');
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_isLoading) {
+      return Container(
+        width: 80,
+        height: 32,
+        decoration: BoxDecoration(
+          color: Colors.grey[100],
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: const Center(
+          child: SizedBox(
+            width: 16,
+            height: 16,
+            child: CircularProgressIndicator(strokeWidth: 2),
+          ),
+        ),
+      );
+    }
+
+    return Consumer<FriendshipProvider>(
+      builder: (context, provider, _) {
+        final followStatus = provider.getCachedStatus(widget.targetUserId);
+        final status = followStatus?['status'];
+        final type = followStatus?['type'];
+
+        String buttonText = 'Follow';
+        IconData buttonIcon = Icons.person_add_outlined;
+        Color bgColor = const Color(0xFFDC143C);
+        Color fgColor = Colors.white;
+        Border? border;
+
+        if (status == 'accepted') {
+          buttonText = 'Following';
+          buttonIcon = Icons.check;
+          bgColor = Colors.white;
+          fgColor = const Color(0xFFDC143C);
+          border = Border.all(color: const Color(0xFFDC143C), width: 1.5);
+        } else if (status == 'pending' && type == 'sent') {
+          buttonText = 'Pending';
+          buttonIcon = Icons.schedule;
+          bgColor = Colors.grey[200]!;
+          fgColor = Colors.grey[700]!;
+        } else if (status == 'pending' && type == 'received') {
+          buttonText = 'Accept';
+          buttonIcon = Icons.person_add;
+          bgColor = Colors.green.withOpacity(0.1);
+          fgColor = Colors.green;
+          border = Border.all(color: Colors.green, width: 1.5);
+        }
+
+        return Container(
+          decoration: BoxDecoration(
+            color: bgColor,
+            border: border,
+            borderRadius: BorderRadius.circular(20),
+          ),
+          child: Material(
+            color: Colors.transparent,
+            child: InkWell(
+              onTap: _handleAction,
+              borderRadius: BorderRadius.circular(20),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(buttonIcon, size: 14, color: fgColor),
+                    const SizedBox(width: 4),
+                    Text(
+                      buttonText,
+                      style: TextStyle(
+                        color: fgColor,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
 class _HomePageState extends State<HomePage> {
   // Cache comment counts
   final Map<int, int> _commentCounts = {};
@@ -256,6 +592,218 @@ if (_showForYou) {
 
     setState(() {});
   }
+
+// Check follow status for a specific user
+Future<Map<String, dynamic>?> _checkUserFollowStatus(int targetUserId) async {
+  try {
+    // Check if already friends
+    final friendship = await supabase
+        .from('friendships')
+        .select()
+        .or('and(user_id.eq.${widget.currentUserId},friend_id.eq.$targetUserId),and(user_id.eq.$targetUserId,friend_id.eq.${widget.currentUserId})')
+        .maybeSingle();
+
+    if (friendship != null && friendship['status'] == 'accepted') {
+      return {'status': 'accepted', 'type': 'friendship'};
+    }
+
+    // Check if I sent a request
+    final myRequest = await supabase
+        .from('friendship_requests')
+        .select()
+        .eq('requester_id', widget.currentUserId)
+        .eq('receiver_id', targetUserId)
+        .eq('status', 'pending')
+        .maybeSingle();
+
+    if (myRequest != null) {
+      return {'status': 'pending', 'type': 'sent'};
+    }
+
+    // Check if they sent a request
+    final theirRequest = await supabase
+        .from('friendship_requests')
+        .select()
+        .eq('requester_id', targetUserId)
+        .eq('receiver_id', widget.currentUserId)
+        .eq('status', 'pending')
+        .maybeSingle();
+
+    if (theirRequest != null) {
+      return {'status': 'pending', 'type': 'received'};
+    }
+
+    return null; // No relationship
+  } catch (e) {
+    debugPrint('⚠️ Error checking follow status: $e');
+    return null;
+  }
+}
+
+// Send follow request
+Future<void> _sendFollowRequest(int targetUserId, String userName) async {
+  try {
+    // Create friendship request
+    await supabase.from('friendship_requests').insert({
+      'requester_id': widget.currentUserId,
+      'receiver_id': targetUserId,
+      'status': 'pending',
+    });
+
+    // Get current user name
+    final currentUserData = await UserController.fetchUserData(widget.currentUserId);
+    final currentUserName = currentUserData?['name'] ?? 'Someone';
+
+    // Create notification
+    await supabase.from('notifications').insert({
+      'user_id': targetUserId,
+      'type': 'follow_request',
+      'title': 'New Follow Request',
+      'body': '$currentUserName wants to follow you',
+      'is_read': false,
+      'from_user_id': widget.currentUserId,
+    });
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Follow request sent to $userName'),
+        backgroundColor: Colors.green,
+        duration: const Duration(seconds: 2),
+      ),
+    );
+  } catch (e) {
+    debugPrint('❌ Error sending follow request: $e');
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Failed to send follow request'),
+        backgroundColor: Colors.red,
+      ),
+    );
+  }
+}
+
+// Accept friend request
+Future<void> _acceptFriendRequest(int requesterId, String userName) async {
+  try {
+    // Update request to accepted
+    await supabase
+        .from('friendship_requests')
+        .update({
+          'status': 'accepted',
+          'updated_at': DateTime.now().toIso8601String(),
+        })
+        .eq('requester_id', requesterId)
+        .eq('receiver_id', widget.currentUserId)
+        .eq('status', 'pending');
+
+    // Add to friendships table
+    await supabase.from('friendships').insert({
+      'user_id': widget.currentUserId,
+      'friend_id': requesterId,
+      'status': 'accepted',
+    });
+
+    // Delete the request notification
+    await supabase
+        .from('notifications')
+        .delete()
+        .eq('user_id', widget.currentUserId)
+        .eq('from_user_id', requesterId)
+        .eq('type', 'follow_request');
+
+    // Get current user name
+    final currentUserData = await UserController.fetchUserData(widget.currentUserId);
+    final currentUserName = currentUserData?['name'] ?? 'Someone';
+
+    // Send acceptance notification
+    await supabase.from('notifications').insert({
+      'user_id': requesterId,
+      'type': 'follow_accepted',
+      'title': 'Friend Request Accepted',
+      'body': '$currentUserName accepted your follow request, you are now friends!!',
+      'is_read': false,
+      'from_user_id': widget.currentUserId,
+    });
+
+    // Show confetti
+    _confettiController.play();
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('You are now friends with $userName 🎉'),
+        backgroundColor: Colors.green,
+        duration: const Duration(seconds: 2),
+      ),
+    );
+  } catch (e) {
+    debugPrint('❌ Error accepting friend request: $e');
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Failed to accept friend request'),
+        backgroundColor: Colors.red,
+      ),
+    );
+  }
+}
+
+// Toggle follow/unfollow for a user
+Future<void> _toggleFollowFromFeed(int targetUserId, String userName) async {
+  try {
+    final followStatus = await _checkUserFollowStatus(targetUserId);
+    
+    if (followStatus?['status'] == 'accepted') {
+      // Unfollow
+      await supabase
+          .from('friendships')
+          .delete()
+          .or('and(user_id.eq.${widget.currentUserId},friend_id.eq.$targetUserId),and(user_id.eq.$targetUserId,friend_id.eq.${widget.currentUserId})');
+      
+      setState(() {});
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Unfollowed $userName'),
+          backgroundColor: Colors.orange,
+          duration: const Duration(seconds: 2),
+        ),
+      );
+    } else if (followStatus?['status'] == 'pending' && followStatus?['type'] == 'sent') {
+      // Cancel pending request
+      await supabase
+          .from('friendship_requests')
+          .delete()
+          .eq('requester_id', widget.currentUserId)
+          .eq('receiver_id', targetUserId)
+          .eq('status', 'pending');
+      
+      // Delete notification
+      await supabase
+          .from('notifications')
+          .delete()
+          .eq('user_id', targetUserId)
+          .eq('from_user_id', widget.currentUserId)
+          .eq('type', 'follow_request');
+      
+      setState(() {});
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Request cancelled'),
+          backgroundColor: Colors.grey,
+          duration: Duration(seconds: 2),
+        ),
+      );
+    }
+  } catch (e) {
+    debugPrint('❌ Error toggling follow: $e');
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Failed to update follow status'),
+        backgroundColor: Colors.red,
+      ),
+    );
+  }
+}
 
   // Add this method to handle calendar event creation:
   // CATEGORY MAPPING (updated per your DB)
@@ -1163,21 +1711,17 @@ Widget _feedCard(PostModel post) {
         ),
       ),
     ),
-                              // FOLLOW BUTTON
-                              if (!isFriend && post.authorId != widget.currentUserId)
-                                TextButton.icon(
-                                  onPressed: () {
-                                    _toggleFollow(post.authorId, userName);
-                                  },
-                                  icon: const Icon(Icons.person_add, size: 18),
-                                  label: const Text("Follow"),
-                                  style: TextButton.styleFrom(
-                                    foregroundColor: const Color(0xFFDC143C),
-                                    textStyle: const TextStyle(
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
-                                ),
+                 // FOLLOW BUTTON - Only show in Discover mode, hide in For You mode
+if (!_showForYou && post.authorId != widget.currentUserId)
+  _FollowButton(
+    targetUserId: post.authorId,
+    userName: userName,
+    currentUserId: widget.currentUserId,
+    onFollowStatusChanged: () {
+      setCardState(() {}); // Refresh the card
+    },
+  ),
+                            
                               // SAVE ICON
                               Consumer<SavedPostProvider>(
                                 builder: (context, savedProvider, _) {
@@ -1548,5 +2092,7 @@ String timeAgo(DateTime createdAtUtc) {
   final weeks = (diff.inDays / 7).floor();
   return "$weeks week${weeks > 1 ? 's' : ''} ago";
 }
-
+// ==================== FOLLOW BUTTON WIDGET ====================
+// Add this AFTER _HomePageState class ends, before the final }
+// ==================== FOLLOW BUTTON WIDGET ====================
 }

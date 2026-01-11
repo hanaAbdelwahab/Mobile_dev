@@ -26,7 +26,7 @@ import 'providers/StoryProvider.dart';
 import 'providers/post_provider.dart';
 import 'providers/repost_provider.dart';
 import 'providers/comment_provider.dart';
-
+import 'providers/friendship_provider.dart';
 // ================= Services =================
 import 'services/supabase_service.dart';
 
@@ -119,6 +119,7 @@ class MIUTechCircleApp extends StatelessWidget {
           ),
         ),
         ChangeNotifierProvider(create: (_) => CommentProvider()),
+        ChangeNotifierProvider(create: (_) => FriendshipProvider()),
       ],
       child: MaterialApp(
         title: 'MIU TechCircle',
