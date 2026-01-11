@@ -29,7 +29,7 @@ import 'providers/comment_provider.dart';
 import 'providers/FreelancingHubProvider.dart'; 
 import 'providers/friendship_provider.dart';
 import 'providers/message_provider.dart';
-
+import 'providers/notifications_provider.dart';
 // ================= Services =================
 import 'services/supabase_service.dart';
 
@@ -124,7 +124,13 @@ class MIUTechCircleApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => CommentProvider()),
         ChangeNotifierProvider(create: (_) => FreelancingHubProvider()),
         ChangeNotifierProvider(create: (_) => FriendshipProvider()),
-         ChangeNotifierProvider(create: (_) => MessageProvider()),
+        ChangeNotifierProvider(create: (_) => MessageProvider()),
+        ChangeNotifierProvider<NotificationsProvider>(
+      create: (context) => NotificationsProvider(
+      userId: _getCurrentUserId(), // ✅ Use the method, not undefined variable
+      ),
+    ),
+
       ],
       child: MaterialApp(
         title: 'MIU TechCircle',

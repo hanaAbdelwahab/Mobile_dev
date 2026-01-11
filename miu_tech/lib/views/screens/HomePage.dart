@@ -28,6 +28,7 @@ import 'OtherUserProfilePage.dart';
 import '../../providers/FreelancingHubProvider.dart';
 import '../../providers/friendship_provider.dart';
 import '../../providers/message_provider.dart';
+import '../../providers/notifications_provider.dart';
 final supabase = Supabase.instance.client;
 class FeedItem {
   final PostModel? post;
@@ -404,6 +405,12 @@ class _HomePageState extends State<HomePage> {
     _confettiController = ConfettiController(
       duration: const Duration(seconds: 2),
     );
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        final notificationProvider = Provider.of<NotificationsProvider>(context, listen: false);
+        notificationProvider.updateUserId(widget.currentUserId);
+      }
+    });
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<StoryProvider>().loadStories(
         currentUserId: widget.currentUserId,

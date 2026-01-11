@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../../providers/message_provider.dart';
+import '../../providers/notifications_provider.dart';
 import '../screens/AddPostScreen.dart';
 import '../screens/My_Profile.dart';
 import '../screens/messaging_page.dart';
 import '../screens/notifications_page.dart';
-import '../screens/calender_screen.dart';
-import 'package:provider/provider.dart';
-import '../../providers/message_provider.dart';
+import '../screens/HomePage.dart';
 
 class BottomNavbar extends StatelessWidget {
   final int? currentUserId;
@@ -18,7 +19,17 @@ class BottomNavbar extends StatelessWidget {
   });
 
   void _onItemTapped(BuildContext context, int index) {
-    if (index == currentIndex) return;
+    if (index == currentIndex) {
+      // If already on home, refresh the page
+      if (index == 0 && currentUserId != null) {
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(
+            builder: (context) => HomePage(currentUserId: currentUserId!),
+          ),
+        );
+      }
+      return;
+    }
 
     switch (index) {
       case 0: // HOME
@@ -29,7 +40,7 @@ class BottomNavbar extends StatelessWidget {
 
       case 1: // CHAT
         if (currentUserId != null) {
-          // ✅ NEW: Reload unread count before navigating to chat
+          // Reload unread count before navigating to chat
           final messageProvider = Provider.of<MessageProvider>(context, listen: false);
           messageProvider.loadUnreadCount(currentUserId!);
           
@@ -39,7 +50,7 @@ class BottomNavbar extends StatelessWidget {
               builder: (_) => ChatsListPage(currentUserId: currentUserId!),
             ),
           ).then((_) {
-            // ✅ NEW: Reload count when returning from chat page
+            // Reload count when returning from chat page
             messageProvider.loadUnreadCount(currentUserId!);
           });
         } else {
@@ -85,7 +96,7 @@ class BottomNavbar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // ✅ NEW: Initialize MessageProvider when navbar is built
+    // Initialize MessageProvider when navbar is built
     if (currentUserId != null) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         final messageProvider = Provider.of<MessageProvider>(context, listen: false);
@@ -116,6 +127,7 @@ class BottomNavbar extends StatelessWidget {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: [
+                // HOME
                 Expanded(
                   child: _NavItem(
                     icon: Icons.home,
@@ -125,35 +137,56 @@ class BottomNavbar extends StatelessWidget {
                   ),
                 ),
                 
-                // ✅ CHAT WITH DYNAMIC UNREAD BADGE
+                // CHAT WITH DYNAMIC UNREAD BADGE
                 Expanded(
-                  child: Consumer<MessageProvider>(
-                    builder: (context, messageProvider, child) {
-                      // ✅ Get the actual unread count from provider
-                      final unreadCount = messageProvider.unreadCount;
-                      
-                      return _NavItemWithBadge(
-                        icon: Icons.chat,
-                        label: "Chat",
-                        selected: currentIndex == 1,
-                        badgeCount: unreadCount, // ✅ Use dynamic count
-                        onTap: () => _onItemTapped(context, 1),
-                      );
-                    },
-                  ),
+                  child: currentUserId != null
+                      ? Consumer<MessageProvider>(
+                          builder: (context, messageProvider, child) {
+                            final unreadCount = messageProvider.unreadCount;
+                            
+                            return _NavItemWithBadge(
+                              icon: Icons.chat,
+                              label: "Chat",
+                              selected: currentIndex == 1,
+                              badgeCount: unreadCount,
+                              onTap: () => _onItemTapped(context, 1),
+                            );
+                          },
+                        )
+                      : _NavItem(
+                          icon: Icons.chat,
+                          label: "Chat",
+                          selected: currentIndex == 1,
+                          onTap: () => _onItemTapped(context, 1),
+                        ),
                 ),
                 
+                // Empty space for floating button
                 const SizedBox(width: 55),
                 
+                // NOTIFICATIONS WITH BADGE
                 Expanded(
-                  child: _NavItem(
-                    icon: Icons.notifications,
-                    label: "Notifications",
-                    selected: currentIndex == 2,
-                    onTap: () => _onItemTapped(context, 2),
-                  ),
+                  child: currentUserId != null
+                      ? Consumer<NotificationsProvider>(
+                          builder: (context, notificationProvider, child) {
+                            return _NavItemWithBadge(
+                              icon: Icons.notifications,
+                              label: "Notifications",
+                              selected: currentIndex == 2,
+                              badgeCount: notificationProvider.unreadCount,
+                              onTap: () => _onItemTapped(context, 2),
+                            );
+                          },
+                        )
+                      : _NavItem(
+                          icon: Icons.notifications,
+                          label: "Notifications",
+                          selected: currentIndex == 2,
+                          onTap: () => _onItemTapped(context, 2),
+                        ),
                 ),
                 
+                // PROFILE
                 Expanded(
                   child: _NavItem(
                     icon: Icons.person,
@@ -166,6 +199,7 @@ class BottomNavbar extends StatelessWidget {
             ),
           ),
           
+          // Floating Add Button
           Positioned(
             top: -20,
             left: 0,
@@ -190,13 +224,29 @@ class BottomNavbar extends StatelessWidget {
                   ],
                 ),
                 child: IconButton(
-                  onPressed: () {
-                    Navigator.push(
+                  onPressed: () async {
+                    // Navigate to Add Post Screen and wait for result
+                    final result = await Navigator.push(
                       context,
                       MaterialPageRoute(
-                        builder: (context) => const AddPostScreen(),
+                        builder: (context) => AddPostScreen(
+                          currentUserId: currentUserId,
+                        ),
                       ),
                     );
+                    
+                    // If post was created successfully, pop to home and it will auto-refresh
+                    if (result != null && result is Map && result['refresh'] == true) {
+                      Navigator.of(context).popUntil((route) => route.isFirst);
+                      
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Post created successfully!'),
+                          backgroundColor: Colors.green,
+                          duration: Duration(seconds: 2),
+                        ),
+                      );
+                    }
                   },
                   icon: const Icon(
                     Icons.add,
@@ -213,6 +263,9 @@ class BottomNavbar extends StatelessWidget {
   }
 }
 
+// ============================================================
+// Bottom Nav Item Widget
+// ============================================================
 class _NavItem extends StatelessWidget {
   final IconData icon;
   final String label;
@@ -260,6 +313,9 @@ class _NavItem extends StatelessWidget {
   }
 }
 
+// ============================================================
+// Bottom Nav Item With Badge Widget
+// ============================================================
 class _NavItemWithBadge extends StatelessWidget {
   final IconData icon;
   final String label;
@@ -298,20 +354,21 @@ class _NavItemWithBadge extends StatelessWidget {
                     color: selected ? Colors.red : Colors.grey,
                   ),
                   
-                  // ✅ ONLY SHOW BADGE IF COUNT > 0
+                  // Only show badge if count > 0
                   if (badgeCount > 0)
                     Positioned(
-                      right: 0,
-                      top: 0,
+                      right: -2,
+                      top: -2,
                       child: Container(
                         padding: const EdgeInsets.all(4),
-                        decoration: const BoxDecoration(
+                        decoration: BoxDecoration(
                           color: Colors.red,
                           shape: BoxShape.circle,
+                          border: Border.all(color: Colors.white, width: 1.5),
                         ),
                         constraints: const BoxConstraints(
-                          minWidth: 16,
-                          minHeight: 16,
+                          minWidth: 18,
+                          minHeight: 18,
                         ),
                         child: Center(
                           child: Text(
