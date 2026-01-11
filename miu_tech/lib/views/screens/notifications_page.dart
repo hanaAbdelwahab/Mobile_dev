@@ -23,189 +23,266 @@ class _NotificationsPageState extends State<NotificationsPage> {
   List notifications = [];
   bool loading = true;
 
+ // ADD THESE NEW VARIABLES:
+  String? selectedFolder; // Tracks which folder is currently open ('friends', 'competitions', or null for main view)
+  List friendRequestNotifications = [];
+  List competitionRequestNotifications = [];
+  List generalNotifications = [];
+
   @override
   void initState() {
     super.initState();
     fetchNotifications();
     
   }
-
-  Future<void> fetchNotifications() async {
-    try {
-      print('🔍 Fetching notifications for user_id: ${widget.userId}');
-
-      final data = await supabase
-          .from('notifications')
-          .select('*')
-          .eq('user_id', widget.userId)
-          .order('created_at', ascending: false);
-
-      print('✅ Fetched ${data.length} notifications');
-      print('📋 Notifications data: $data');
-
-      // Fetch sender details and additional like info for each notification
-      for (var notification in data) {
-        if (notification['from_user_id'] != null) {
-          try {
-            final senderData = await supabase
-                .from('users')
-                .select('name, profile_image, role, department')
-                .eq('user_id', notification['from_user_id'])
-                .maybeSingle();
-
-            notification['sender_data'] = senderData;
-            print('✅ Loaded sender: ${senderData?['name']} for notification type: ${notification['type']}');
-
-            // For like notifications, fetch all likers if it's a grouped notification
-            if (notification['type'] == 'like' && notification['post_id'] != null) {
-              final likersData = await supabase
-                  .from('likes')
-                  .select('user_id')
-                  .eq('post_id', notification['post_id']);
-              
-              notification['like_count'] = likersData.length;
-              print('✅ Like count for post ${notification['post_id']}: ${likersData.length}');
-              
-              // Dynamically update the notification body based on current count
-              if (likersData.length > 1) {
-                notification['body'] = '${senderData?['name'] ?? 'Someone'} and ${likersData.length - 1} others liked your post';
-              } else {
-                notification['body'] = '${senderData?['name'] ?? 'Someone'} liked your post';
-              }
-            }
-            
-            // For comment notifications, fetch all commenters
-            if (notification['type'] == 'comment' && notification['post_id'] != null) {
-              final commentsData = await supabase
-                  .from('comments')
-                  .select('comment_id')
-                  .eq('post_id', notification['post_id']);
-              
-              notification['comment_count'] = commentsData.length;
-              print('✅ Comment count for post ${notification['post_id']}: ${commentsData.length}');
-              
-              // Dynamically update the notification body based on current count
-              if (commentsData.length > 1) {
-                notification['body'] = '${senderData?['name'] ?? 'Someone'} and ${commentsData.length - 1} others commented on your post';
-              } else {
-                notification['body'] = '${senderData?['name'] ?? 'Someone'} commented on your post';
-              }
-            }
-            
-            // For repost notifications, fetch all reposters
-            if (notification['type'] == 'repost' && notification['post_id'] != null) {
-              final repostsData = await supabase
-                  .from('reposts')
-                  .select('id')
-                  .eq('post_id', notification['post_id']);
-              
-              notification['repost_count'] = repostsData.length;
-              print('✅ Repost count for post ${notification['post_id']}: ${repostsData.length}');
-              
-              // Dynamically update the notification body based on current count
-              if (repostsData.length > 1) {
-                notification['body'] = '${senderData?['name'] ?? 'Someone'} and ${repostsData.length - 1} others reposted your post';
-              } else {
-                notification['body'] = '${senderData?['name'] ?? 'Someone'} reposted your post';
-              }
-            }
-            
-            // For reminder notifications, fetch announcement details
-            // For reminder notifications, fetch announcement details
-if (notification['type'] == 'reminder' && notification['announcement_id'] != null) {
-   try {
-    final announcementData = await supabase
-        .from('announcement')
-        .select('title, description, date, time')
-        .eq('ann_id', notification['announcement_id'])
-        .maybeSingle();
+Future<void> fetchNotifications() async {
+  try {
+    print('🔍 Fetching notifications for user_id: ${widget.userId}');
     
-    if (announcementData != null) {
-      // Parse the announcement date
-      try {
-        final announcementDate = DateTime.parse(announcementData['date']);
-        final today = DateTime.now();
-        
-        // Reset time to compare only dates (ignore hours/minutes)
-        final announcementDateOnly = DateTime(announcementDate.year, announcementDate.month, announcementDate.day);
-        final todayDateOnly = DateTime(today.year, today.month, today.day);
-        
-        // Check if the announcement is EXACTLY for today
-        final isToday = announcementDateOnly.isAtSameMomentAs(todayDateOnly);
-        
-        if (isToday) {
-          // Only keep this notification if it's for today
-          notification['announcement_data'] = announcementData;
-          print('✅ Loaded announcement: ${announcementData['title']} for today (${announcementData['date']})');
-        } else {
-          // Mark this notification to be removed (not for today - either past or future)
-          notification['should_remove'] = true;
-          final dateStatus = announcementDateOnly.isBefore(todayDateOnly) ? 'PAST' : 'FUTURE';
-          print('⚠️ Removing $dateStatus reminder: ${announcementData['title']} - Date: ${announcementData['date']} (Today is ${today.toString().split(' ')[0]})');
+    // Fetch friend requests
+    final friendRequestsData = await supabase
+        .from('friendship_requests')
+        .select('*')
+        .eq('receiver_id', widget.userId)
+        .eq('status', 'pending')
+        .order('created_at', ascending: false);
+    
+    print('✅ Fetched ${friendRequestsData.length} friend requests');
+
+    // Fetch competition requests
+   final competitionRequestsData = await supabase
+    .from('team_join_requests')
+    .select('request_id, requester_id, competition_owner_id, status, created_at')
+    .eq('competition_owner_id', widget.userId)
+    .eq('status', 'pending')
+    .order('created_at', ascending: false);
+    
+    print('✅ Fetched ${competitionRequestsData.length} competition requests');
+
+    // Fetch general notifications (likes, comments, reposts, reminders, etc.)
+    final generalNotificationsData = await supabase
+        .from('notifications')
+        .select('*')
+        .eq('user_id', widget.userId)
+        .order('created_at', ascending: false);
+
+    print('✅ Fetched ${generalNotificationsData.length} general notifications');
+
+    // Fetch sender details for friend requests
+    for (var request in friendRequestsData) {
+      if (request['requester_id'] != null) {
+        try {
+          final senderData = await supabase
+              .from('users')
+              .select('name, profile_image, role, department')
+              .eq('user_id', request['requester_id'])
+              .maybeSingle();
+          
+          request['sender_data'] = senderData;
+          request['type'] = 'friend_request';
+          print('✅ Loaded sender: ${senderData?['name']} for friend request');
+        } catch (e) {
+          print('⚠️ Error fetching sender data: $e');
         }
-      } catch (dateError) {
-        print('⚠️ Error parsing date for announcement: $dateError');
-        notification['should_remove'] = true;
       }
-    } else {
-      // No announcement data found, mark for removal
-      notification['should_remove'] = true;
-      print('⚠️ No announcement data found for reminder');
     }
-   } catch (e) {
-    print('⚠️ Error fetching announcement data: $e');
-    notification['should_remove'] = true;
+
+    // Fetch sender details for competition requests
+    for (var request in competitionRequestsData) {
+      if (request['requester_id'] != null) {
+        try {
+          final senderData = await supabase
+              .from('users')
+              .select('name, profile_image, role, department')
+              .eq('user_id', request['requester_id'])
+              .maybeSingle();
+          
+          request['sender_data'] = senderData;
+          request['type'] = 'competition_request';
+          
+
+          print('✅ Loaded sender: ${senderData?['name']} for competition request');
+        } catch (e) {
+          print('⚠️ Error fetching competition request data: $e');
+        }
+      }
+    }
+
+    // Fetch sender details and additional info for general notifications
+   // Fetch sender details and additional info for general notifications
+for (var notification in generalNotificationsData) {
+  // Skip processing if from_user_id is null (system notifications like Events)
+  if (notification['from_user_id'] == null && notification['type'] != 'reminder') {
+    print('⚠️ Skipping notification with null from_user_id: ${notification['type']} - ${notification['title']}');
+    continue; // Skip to next notification
+  }
+  
+  if (notification['from_user_id'] != null) {
+    try {
+      final senderData = await supabase
+          .from('users')
+          .select('name, profile_image, role, department')
+          .eq('user_id', notification['from_user_id'])
+          .maybeSingle();
+
+      notification['sender_data'] = senderData;
+      print('✅ Loaded sender: ${senderData?['name']} for notification type: ${notification['type']}');
+
+      // For like notifications, fetch all likers if it's a grouped notification
+      if (notification['type'] == 'like' && notification['post_id'] != null) {
+        final likersData = await supabase
+            .from('likes')
+            .select('user_id')
+            .eq('post_id', notification['post_id']);
+        
+        notification['like_count'] = likersData.length;
+        print('✅ Like count for post ${notification['post_id']}: ${likersData.length}');
+        
+        // Dynamically update the notification body based on current count
+        if (likersData.length > 1) {
+          notification['body'] = '${senderData?['name'] ?? 'Someone'} and ${likersData.length - 1} others liked your post';
+        } else {
+          notification['body'] = '${senderData?['name'] ?? 'Someone'} liked your post';
+        }
+      }
+      
+      // For comment notifications, fetch all commenters
+      if (notification['type'] == 'comment' && notification['post_id'] != null) {
+        final commentsData = await supabase
+            .from('comments')
+            .select('comment_id')
+            .eq('post_id', notification['post_id']);
+        
+        notification['comment_count'] = commentsData.length;
+        print('✅ Comment count for post ${notification['post_id']}: ${commentsData.length}');
+        
+        // Dynamically update the notification body based on current count
+        if (commentsData.length > 1) {
+          notification['body'] = '${senderData?['name'] ?? 'Someone'} and ${commentsData.length - 1} others commented on your post';
+        } else {
+          notification['body'] = '${senderData?['name'] ?? 'Someone'} commented on your post';
+        }
+      }
+      
+      // For repost notifications, fetch all reposters
+      if (notification['type'] == 'repost' && notification['post_id'] != null) {
+        final repostsData = await supabase
+            .from('reposts')
+            .select('id')
+            .eq('post_id', notification['post_id']);
+        
+        notification['repost_count'] = repostsData.length;
+        print('✅ Repost count for post ${notification['post_id']}: ${repostsData.length}');
+        
+        // Dynamically update the notification body based on current count
+        if (repostsData.length > 1) {
+          notification['body'] = '${senderData?['name'] ?? 'Someone'} and ${repostsData.length - 1} others reposted your post';
+        } else {
+          notification['body'] = '${senderData?['name'] ?? 'Someone'} reposted your post';
+        }
+      }
+    } catch (e) {
+      print('⚠️ Error fetching sender data for notification: $e');
+    }
+  }
+  
+  // For reminder notifications, fetch announcement details (these may have null from_user_id)
+  if (notification['type'] == 'reminder' && notification['announcement_id'] != null) {
+    try {
+      final announcementData = await supabase
+          .from('announcement')
+          .select('title, description, date, time')
+          .eq('ann_id', notification['announcement_id'])
+          .maybeSingle();
+      
+      if (announcementData != null) {
+        // Parse the announcement date
+        try {
+          final announcementDate = DateTime.parse(announcementData['date']);
+          final today = DateTime.now();
+          
+          // Reset time to compare only dates (ignore hours/minutes)
+          final announcementDateOnly = DateTime(announcementDate.year, announcementDate.month, announcementDate.day);
+          final todayDateOnly = DateTime(today.year, today.month, today.day);
+          
+          // Check if the announcement is EXACTLY for today
+          final isToday = announcementDateOnly.isAtSameMomentAs(todayDateOnly);
+          
+          if (isToday) {
+            // Only keep this notification if it's for today
+            notification['announcement_data'] = announcementData;
+            print('✅ Loaded announcement: ${announcementData['title']} for today (${announcementData['date']})');
+          } else {
+            // Mark this notification to be removed (not for today - either past or future)
+            notification['should_remove'] = true;
+            final dateStatus = announcementDateOnly.isBefore(todayDateOnly) ? 'PAST' : 'FUTURE';
+            print('⚠️ Removing $dateStatus reminder: ${announcementData['title']} - Date: ${announcementData['date']} (Today is ${today.toString().split(' ')[0]})');
+          }
+        } catch (dateError) {
+          print('⚠️ Error parsing date for announcement: $dateError');
+          notification['should_remove'] = true;
+        }
+      } else {
+        // No announcement data found, mark for removal
+        notification['should_remove'] = true;
+        print('⚠️ No announcement data found for reminder');
+      }
+    } catch (e) {
+      print('⚠️ Error fetching announcement data: $e');
+      notification['should_remove'] = true;
+    }
   }
 }
-          } catch (e) {
-            print('⚠️ Error fetching sender data: $e');
-          }
-        } else {
-          print('⚠️ Notification has null from_user_id: ${notification}');
-        }
-      }
-     
-// Filter out reminder notifications that are not for today
-// Filter out reminder notifications that are not for today
-final filteredData = data.where((notification) {
-  return notification['should_remove'] != true;
+  // Filter out reminder notifications that are not for today AND follow_request notifications
+final filteredGeneralNotifications = generalNotificationsData.where((notification) {
+  // Remove reminders that are marked for removal
+  if (notification['should_remove'] == true) return false;
+  
+  // Remove follow_request notifications (they're shown in the Friend Requests folder)
+  if (notification['type'] == 'follow_request') return false;
+  
+  // Keep everything else (including follow_accepted)
+  return true;
 }).toList();
 
-// Delete the filtered-out reminder notifications from database
-for (var notification in data) {
-  if (notification['should_remove'] == true && notification['type'] == 'reminder') {
-    try {
-      await supabase
-          .from('notifications')
-          .delete()
-          .eq('notification_id', notification['notification_id']);
-      print('🗑️ Deleted old reminder notification: ${notification['notification_id']}');
-    } catch (e) {
-      print('⚠️ Error deleting reminder: $e');
+    // Delete the filtered-out reminder notifications from database
+    for (var notification in generalNotificationsData) {
+      if (notification['should_remove'] == true && notification['type'] == 'reminder') {
+        try {
+          await supabase
+              .from('notifications')
+              .delete()
+              .eq('notification_id', notification['notification_id']);
+          print('🗑️ Deleted old reminder notification: ${notification['notification_id']}');
+        } catch (e) {
+          print('⚠️ Error deleting reminder: $e');
+        }
+      }
     }
+
+    setState(() {
+      friendRequestNotifications = friendRequestsData;
+      competitionRequestNotifications = competitionRequestsData;
+      generalNotifications = filteredGeneralNotifications;
+      loading = false;
+    });
+
+    print('✅ Total friend requests loaded: ${friendRequestNotifications.length}');
+    print('✅ Total competition requests loaded: ${competitionRequestNotifications.length}');
+    print('✅ Total general notifications loaded: ${generalNotifications.length}');
+    print('✅ Like notifications: ${generalNotifications.where((n) => n['type'] == 'like').length}');
+    print('✅ Comment notifications: ${generalNotifications.where((n) => n['type'] == 'comment').length}');
+    print('✅ Repost notifications: ${generalNotifications.where((n) => n['type'] == 'repost').length}');
+    print('✅ Reminder notifications: ${generalNotifications.where((n) => n['type'] == 'reminder').length}');
+  } catch (e) {
+    print('❌ Error fetching notifications: $e');
+    print('Stack trace: ${StackTrace.current}');
+    setState(() {
+      loading = false;
+    });
   }
 }
-
-setState(() {
-  notifications = filteredData;
-  loading = false;
-});
-
-      print('✅ Total notifications loaded: ${notifications.length}');
-      print('✅ Follow request notifications: ${notifications.where((n) => n['type'] == 'follow_request').length}');
-      print('✅ Like notifications: ${notifications.where((n) => n['type'] == 'like').length}');
-      print('✅ Comment notifications: ${notifications.where((n) => n['type'] == 'comment').length}');
-      print('✅ Repost notifications: ${notifications.where((n) => n['type'] == 'repost').length}');
-      print('✅ Reminder notifications: ${notifications.where((n) => n['type'] == 'reminder').length}');
-    } catch (e) {
-      print('❌ Error fetching notifications: $e');
-      print('Stack trace: ${StackTrace.current}');
-      setState(() {
-        loading = false;
-      });
-    }
-  }
-
+ 
   String formatTime(String? time) {
     if (time == null) return 'Just now';
 
@@ -779,7 +856,503 @@ setState(() {
       }
     }
   }
+Widget _buildFolderCard({
+    required String title,
+    required int count,
+    required IconData icon,
+    required Color color,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          boxShadow: const [
+            BoxShadow(
+              color: Colors.black12,
+              blurRadius: 8,
+              offset: Offset(0, 2),
+            ),
+          ],
+          border: Border.all(color: Colors.grey[300]!, width: 1),
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: color.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Icon(icon, color: color, size: 28),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    '$count pending ${count == 1 ? 'request' : 'requests'}',
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: Colors.grey[600],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Icon(Icons.chevron_right, color: Colors.grey[400]),
+          ],
+        ),
+      ),
+    );
+  }
 
+  Widget _buildFriendRequestsList() {
+    return Scaffold(
+      backgroundColor: const Color(0xFFF0F0F0),
+      appBar: AppBar(
+        backgroundColor: Colors.white,
+        foregroundColor: Colors.red[700],
+        elevation: 3,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () {
+            setState(() {
+              selectedFolder = null; // Go back to main view
+            });
+          },
+        ),
+        title: Text(
+          "Friend Requests",
+          style: TextStyle(
+            fontSize: 20,
+            fontWeight: FontWeight.w700,
+            color: Colors.red[700],
+          ),
+        ),
+      ),
+      body: friendRequestNotifications.isEmpty
+          ? Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.person_add, size: 64, color: Colors.grey[400]),
+                  const SizedBox(height: 16),
+                  Text(
+                    "No friend requests",
+                    style: TextStyle(fontSize: 16, color: Colors.grey[600]),
+                  ),
+                ],
+              ),
+            )
+          : ListView.builder(
+              padding: const EdgeInsets.all(16),
+              itemCount: friendRequestNotifications.length,
+              itemBuilder: (context, index) {
+                final request = friendRequestNotifications[index];
+                final senderData = request['sender_data'];
+                final senderName = senderData?['name'] ?? 'Unknown';
+                final senderProfileImage = senderData?['profile_image'];
+                final senderRole = senderData?['role'];
+                final senderDept = senderData?['department'];
+                final requesterId = request['requester_id'];
+                final createdAt = request['created_at'];
+
+                return Container(
+                  margin: const EdgeInsets.only(bottom: 16),
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(16),
+                    boxShadow: const [
+                      BoxShadow(
+                        color: Colors.black12,
+                        blurRadius: 12,
+                        offset: Offset(0, 6),
+                      ),
+                    ],
+                  ),
+                  child: Column(
+                    children: [
+                      Row(
+                        children: [
+                          CircleAvatar(
+                            radius: 30,
+                            backgroundImage: senderProfileImage != null && senderProfileImage.isNotEmpty
+                                ? NetworkImage(senderProfileImage)
+                                : null,
+                            backgroundColor: Colors.red[700],
+                            child: senderProfileImage == null || senderProfileImage.isEmpty
+                                ? Text(
+                                    senderName.split(' ').map((e) => e.isNotEmpty ? e[0] : '').take(2).join().toUpperCase(),
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.w600,
+                                      fontSize: 16,
+                                    ),
+                                  )
+                                : null,
+                          ),
+                          const SizedBox(width: 16),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  senderName,
+                                  style: const TextStyle(
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                if (senderRole != null) ...[
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    '$senderRole${senderDept != null ? ' | $senderDept' : ''}',
+                                    style: TextStyle(
+                                      fontSize: 14,
+                                      color: Colors.grey[600],
+                                    ),
+                                  ),
+                                ],
+                                const SizedBox(height: 4),
+                                Text(
+                                  formatTime(createdAt),
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    color: Colors.grey[500],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: ElevatedButton(
+                              onPressed: () => acceptFollow(requesterId, senderName),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.green,
+                                foregroundColor: Colors.white,
+                                elevation: 0,
+                                padding: const EdgeInsets.symmetric(vertical: 14),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                              ),
+                              child: const Text(
+                                "Accept",
+                                style: TextStyle(
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 15,
+                                ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: OutlinedButton(
+                              onPressed: () => rejectFollow(requesterId),
+                              style: OutlinedButton.styleFrom(
+                                foregroundColor: Colors.red,
+                                side: const BorderSide(color: Colors.red, width: 2),
+                                padding: const EdgeInsets.symmetric(vertical: 14),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                              ),
+                              child: const Text(
+                                "Reject",
+                                style: TextStyle(
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 15,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                );
+              },
+            ),
+    );
+  }
+
+  Widget _buildCompetitionRequestsList() {
+    return Scaffold(
+      backgroundColor: const Color(0xFFF0F0F0),
+      appBar: AppBar(
+        backgroundColor: Colors.white,
+        foregroundColor: Colors.red[700],
+        elevation: 3,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () {
+            setState(() {
+              selectedFolder = null; // Go back to main view
+            });
+          },
+        ),
+        title: Text(
+          "Competition Requests",
+          style: TextStyle(
+            fontSize: 20,
+            fontWeight: FontWeight.w700,
+            color: Colors.red[700],
+          ),
+        ),
+      ),
+      body: competitionRequestNotifications.isEmpty
+          ? Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.emoji_events, size: 64, color: Colors.grey[400]),
+                  const SizedBox(height: 16),
+                  Text(
+                    "No competition requests",
+                    style: TextStyle(fontSize: 16, color: Colors.grey[600]),
+                  ),
+                ],
+              ),
+            )
+          : ListView.builder(
+              padding: const EdgeInsets.all(16),
+              itemCount: competitionRequestNotifications.length,
+              itemBuilder: (context, index) {
+                final request = competitionRequestNotifications[index];
+                final senderData = request['sender_data'];
+                final competitionData = request['competition_data'];
+                final senderName = senderData?['name'] ?? 'Unknown';
+                final senderProfileImage = senderData?['profile_image'];
+                final senderRole = senderData?['role'];
+                final senderDept = senderData?['department'];
+                final competitionTitle = 'Competition Join Request';
+                final requestId = request['request_id'];
+                final createdAt = request['created_at'];
+
+                return Container(
+                  margin: const EdgeInsets.only(bottom: 16),
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(16),
+                    boxShadow: const [
+                      BoxShadow(
+                        color: Colors.black12,
+                        blurRadius: 12,
+                        offset: Offset(0, 6),
+                      ),
+                    ],
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          CircleAvatar(
+                            radius: 30,
+                            backgroundImage: senderProfileImage != null && senderProfileImage.isNotEmpty
+                                ? NetworkImage(senderProfileImage)
+                                : null,
+                            backgroundColor: Colors.red[700],
+                            child: senderProfileImage == null || senderProfileImage.isEmpty
+                                ? Text(
+                                    senderName.split(' ').map((e) => e.isNotEmpty ? e[0] : '').take(2).join().toUpperCase(),
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.w600,
+                                      fontSize: 16,
+                                    ),
+                                  )
+                                : null,
+                          ),
+                          const SizedBox(width: 16),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  senderName,
+                                  style: const TextStyle(
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                if (senderRole != null) ...[
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    '$senderRole${senderDept != null ? ' | $senderDept' : ''}',
+                                    style: TextStyle(
+                                      fontSize: 14,
+                                      color: Colors.grey[600],
+                                    ),
+                                  ),
+                                ],
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: Colors.orange.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: Colors.orange.withOpacity(0.3)),
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(Icons.emoji_events, color: Colors.orange[700], size: 20),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                competitionTitle,
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w600,
+                                  color: Colors.orange[700],
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        formatTime(createdAt),
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: Colors.grey[500],
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: ElevatedButton(
+                              onPressed: () => acceptCompetitionRequest(requestId),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.green,
+                                foregroundColor: Colors.white,
+                                elevation: 0,
+                                padding: const EdgeInsets.symmetric(vertical: 14),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                              ),
+                              child: const Text(
+                                "Accept",
+                                style: TextStyle(
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 15,
+                                ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: OutlinedButton(
+                              onPressed: () => rejectCompetitionRequest(requestId),
+                              style: OutlinedButton.styleFrom(
+                                foregroundColor: Colors.red,
+                                side: const BorderSide(color: Colors.red, width: 2),
+                                padding: const EdgeInsets.symmetric(vertical: 14),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                              ),
+                              child: const Text(
+                                "Reject",
+                                style: TextStyle(
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 15,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                );
+              },
+            ),
+    );
+  }
+
+  Future<void> acceptCompetitionRequest(int requestId) async {
+    try {
+      await supabase
+          .from('team_join_requests')
+          .update({'status': 'accepted'})
+          .eq('request_id', requestId);
+
+      await fetchNotifications();
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text("Competition request accepted!"),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } catch (e) {
+      print('❌ Error accepting competition request: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Error: $e")),
+        );
+      }
+    }
+  }
+
+  Future<void> rejectCompetitionRequest(int requestId) async {
+    try {
+      await supabase
+          .from('team_join_requests')
+          .update({'status': 'rejected'})
+          .eq('request_id', requestId);
+
+      await fetchNotifications();
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text("Competition request rejected"),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } catch (e) {
+      print('❌ Error rejecting competition request: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Error: $e")),
+        );
+      }
+    }
+  }
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -805,57 +1378,661 @@ setState(() {
           ),
         ),
       ),
-      body: loading
-          ? const Center(child: CircularProgressIndicator())
-          : notifications.isEmpty
-              ? Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
+body: loading
+    ? const Center(child: CircularProgressIndicator())
+    : selectedFolder == null
+        ? _buildMainView()
+        : selectedFolder == 'friends'
+            ? _buildFriendRequestsList()
+            : selectedFolder == 'competitions'
+                ? _buildCompetitionRequestsList()
+                : const Center(child: Text("Invalid folder")),
+    );
+  }
+Widget _buildMainView() {
+  final hasFriendRequests = friendRequestNotifications.isNotEmpty;
+  final hasCompetitionRequests = competitionRequestNotifications.isNotEmpty;
+  final hasGeneralNotifications = generalNotifications.isNotEmpty;
+
+  if (!hasFriendRequests && !hasCompetitionRequests && !hasGeneralNotifications) {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.notifications_none, size: 64, color: Colors.grey[400]),
+          const SizedBox(height: 16),
+          Text(
+            "No notifications",
+            style: TextStyle(fontSize: 16, color: Colors.grey[600]),
+          ),
+        ],
+      ),
+    );
+  }
+
+  return ListView(
+    padding: const EdgeInsets.all(16),
+    children: [
+      // FOLDERS SECTION (at the top)
+      if (hasFriendRequests || hasCompetitionRequests) ...[
+        Text(
+          'Requests',
+          style: TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.bold,
+            color: Colors.grey[700],
+          ),
+        ),
+        const SizedBox(height: 12),
+      ],
+      
+      if (hasFriendRequests)
+        _buildFolderCard(
+          title: 'Friend Requests',
+          count: friendRequestNotifications.length,
+          icon: Icons.person_add,
+          color: Colors.blue,
+          onTap: () {
+            setState(() {
+              selectedFolder = 'friends';
+            });
+          },
+        ),
+      
+      if (hasFriendRequests && hasCompetitionRequests) 
+        const SizedBox(height: 12),
+      
+      if (hasCompetitionRequests)
+        _buildFolderCard(
+          title: 'Competition Requests',
+          count: competitionRequestNotifications.length,
+          icon: Icons.emoji_events,
+          color: Colors.orange,
+          onTap: () {
+            setState(() {
+              selectedFolder = 'competitions';
+            });
+          },
+        ),
+      
+      // DIVIDER between folders and notifications
+      if ((hasFriendRequests || hasCompetitionRequests) && hasGeneralNotifications) ...[
+        const SizedBox(height: 24),
+        Divider(color: Colors.grey[300], thickness: 1),
+        const SizedBox(height: 12),
+        Text(
+          'Activity',
+          style: TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.bold,
+            color: Colors.grey[700],
+          ),
+        ),
+        const SizedBox(height: 12),
+      ],
+      
+      // ALL GENERAL NOTIFICATIONS (likes, comments, reposts, reminders, etc.)
+      ...generalNotifications.map((notification) {
+        final senderData = notification['sender_data'];
+        final senderName = senderData != null ? (senderData['name'] ?? 'Unknown') : 'Unknown';
+        final senderProfileImage = senderData != null ? senderData['profile_image'] : null;
+        final senderRole = senderData != null ? senderData['role'] : null;
+        final senderDept = senderData != null ? senderData['department'] : null;
+        final title = notification['title'] ?? 'Notification';
+        final body = notification['body'] ?? '';
+        final type = notification['type'];
+        final isRead = notification['is_read'] ?? false;
+        final createdAt = notification['created_at'];
+        final notificationId = notification['notification_id'];
+        final fromUserId = notification['from_user_id'];
+        final postId = notification['post_id'];
+
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 12),
+          child: _buildGeneralNotificationItem(
+            notificationId: notificationId,
+            senderName: senderName,
+            senderProfileImage: senderProfileImage,
+            senderRole: senderRole,
+            senderDept: senderDept,
+            title: title,
+            message: body,
+            time: createdAt != null ? formatTime(createdAt) : 'Just now',
+            isRead: isRead,
+            type: type,
+            fromUserId: fromUserId,
+            postId: postId,
+          ),
+        );
+      }).toList(),
+    ],
+  );
+}
+
+Widget _buildGeneralNotificationItem({
+  required int? notificationId,
+  required String senderName,
+  String? senderProfileImage,
+  String? senderRole,
+  String? senderDept,
+  required String title,
+  required String message,
+  required String time,
+  required bool isRead,
+  String? type,
+  int? fromUserId,
+  int? postId,
+}) {
+  // Find the notification data to get counts
+ final notification = generalNotifications.firstWhere(
+  (n) => n['notification_id'] == notificationId,
+  orElse: () => <String, dynamic>{},
+);
+  
+  final int? likeCount = notification['like_count'];
+  final int? commentCount = notification['comment_count'];
+  final int? repostCount = notification['repost_count'];
+  final announcementData = notification['announcement_data'];
+
+  // For reminders, use announcement title; for others, use sender name
+  final String displayName = type == 'reminder' 
+      ? (announcementData?['title'] ?? 'Event Reminder')
+      : senderName;
+
+  // For reminders, create a formatted message from announcement data
+  String displayMessage = message;
+  if (type == 'reminder' && announcementData != null) {
+    final description = announcementData['description'] ?? '';
+    final date = announcementData['date'] ?? '';
+    final eventTime = announcementData['time'] ?? '';
+    displayMessage = '$description\nScheduled for $date at $eventTime';
+  }
+
+  return GestureDetector(
+    onTap: () {
+      if (!isRead && notificationId != null) {
+        markAsRead(notificationId);
+      }
+      
+      if ((type == 'like' || type == 'comment' || type == 'repost') && postId != null) {
+        navigateToPost(postId);
+      } else if (type == 'reminder') {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => CalendarScreen(userId: widget.userId),
+          ),
+        );
+      }
+    },
+    child: Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: isRead ? Colors.white : const Color(0xFFFFF5F5),
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: const [
+          BoxShadow(
+            color: Colors.black12,
+            blurRadius: 12,
+            offset: Offset(0, 6),
+          ),
+        ],
+        border: Border.all(
+          color: isRead ? Colors.grey[300]! : Colors.red[200]!,
+          width: 1,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // CircleAvatar for user image (or stacked avatars for multiple likes/comments)
+              if (type == 'like' && likeCount != null && likeCount > 1)
+                SizedBox(
+                  width: 48,
+                  height: 48,
+                  child: Stack(
                     children: [
-                      Icon(
-                        Icons.notifications_none,
-                        size: 80,
-                        color: Colors.grey[400],
+                      Positioned(
+                        right: 0,
+                        child: Container(
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            border: Border.all(color: Colors.white, width: 2),
+                          ),
+                          child: CircleAvatar(
+                            radius: 16,
+                            backgroundImage: senderProfileImage != null && senderProfileImage.isNotEmpty
+                                ? NetworkImage(senderProfileImage)
+                                : null,
+                            backgroundColor: Colors.red[700],
+                            child: senderProfileImage == null || senderProfileImage.isEmpty
+                                ? Text(
+                                    displayName.split(' ').map((e) => e.isNotEmpty ? e[0] : '').take(1).join().toUpperCase(),
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.w600,
+                                      fontSize: 10,
+                                    ),
+                                  )
+                                : null,
+                          ),
+                        ),
                       ),
-                      const SizedBox(height: 16),
-                      Text(
-                        "No notifications",
-                        style: TextStyle(
-                          fontSize: 18,
-                          color: Colors.grey[600],
-                          fontWeight: FontWeight.w500,
+                      Positioned(
+                        left: 0,
+                        child: Container(
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            border: Border.all(color: Colors.white, width: 2),
+                          ),
+                          child: CircleAvatar(
+                            radius: 16,
+                            backgroundColor: Colors.grey[400],
+                            child: Text(
+                              '+${likeCount - 1}',
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.w600,
+                                fontSize: 10,
+                              ),
+                            ),
+                          ),
                         ),
                       ),
                     ],
                   ),
                 )
-              : RefreshIndicator(
-                  onRefresh: fetchNotifications,
-                  color: Colors.red[700],
-                  child: ListView.builder(
-                    padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
-                    itemCount: notifications.length,
-                    itemBuilder: (context, index) {
-                      final n = notifications[index];
-
-                      return _buildNotificationItem(
-                        notificationId: n['notification_id'],
-                        title: n['title'] ?? 'Notification',
-                        message: n['body'] ?? '',
-                        time: n['created_at'] != null ? formatTime(n['created_at']) : 'Just now',
-                        isRead: n['is_read'] ?? false,
-                        type: n['type'],
-                        fromUserId: n['from_user_id'],
-                        postId: n['post_id'],
-                        index: index,
-                        profileUrl: null,
-                      );
-                    },
+              else if (type == 'comment' && commentCount != null && commentCount > 1)
+                SizedBox(
+                  width: 48,
+                  height: 48,
+                  child: Stack(
+                    children: [
+                      Positioned(
+                        right: 0,
+                        child: Container(
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            border: Border.all(color: Colors.white, width: 2),
+                          ),
+                          child: CircleAvatar(
+                            radius: 16,
+                            backgroundImage: senderProfileImage != null && senderProfileImage.isNotEmpty
+                                ? NetworkImage(senderProfileImage)
+                                : null,
+                            backgroundColor: Colors.red[700],
+                            child: senderProfileImage == null || senderProfileImage.isEmpty
+                                ? Text(
+                                    displayName.split(' ').map((e) => e.isNotEmpty ? e[0] : '').take(1).join().toUpperCase(),
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.w600,
+                                      fontSize: 10,
+                                    ),
+                                  )
+                                : null,
+                          ),
+                        ),
+                      ),
+                      Positioned(
+                        left: 0,
+                        child: Container(
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            border: Border.all(color: Colors.white, width: 2),
+                          ),
+                          child: CircleAvatar(
+                            radius: 16,
+                            backgroundColor: Colors.grey[400],
+                            child: Text(
+                              '+${commentCount - 1}',
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.w600,
+                                fontSize: 10,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                )
+              else if (type == 'repost' && repostCount != null && repostCount > 1)
+                SizedBox(
+                  width: 48,
+                  height: 48,
+                  child: Stack(
+                    children: [
+                      Positioned(
+                        right: 0,
+                        child: Container(
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            border: Border.all(color: Colors.white, width: 2),
+                          ),
+                          child: CircleAvatar(
+                            radius: 16,
+                            backgroundImage: senderProfileImage != null && senderProfileImage.isNotEmpty
+                                ? NetworkImage(senderProfileImage)
+                                : null,
+                            backgroundColor: Colors.red[700],
+                            child: senderProfileImage == null || senderProfileImage.isEmpty
+                                ? Text(
+                                    displayName.split(' ').map((e) => e.isNotEmpty ? e[0] : '').take(1).join().toUpperCase(),
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.w600,
+                                      fontSize: 10,
+                                    ),
+                                  )
+                                : null,
+                          ),
+                        ),
+                      ),
+                      Positioned(
+                        left: 0,
+                        child: Container(
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            border: Border.all(color: Colors.white, width: 2),
+                          ),
+                          child: CircleAvatar(
+                            radius: 16,
+                            backgroundColor: Colors.grey[400],
+                            child: Text(
+                              '+${repostCount - 1}',
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.w600,
+                                fontSize: 10,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                )
+              else
+                // Default avatar or calendar icon for reminders
+                type == 'reminder'
+                  ? CircleAvatar(
+                      radius: 24,
+                      backgroundColor: Colors.red[700],
+                      child: const Icon(
+                        Icons.calendar_today,
+                        color: Colors.white,
+                        size: 20,
+                      ),
+                    )
+                  : CircleAvatar(
+                      radius: 24,
+                      backgroundImage: senderProfileImage != null && senderProfileImage.isNotEmpty
+                          ? NetworkImage(senderProfileImage)
+                          : null,
+                      backgroundColor: Colors.red[700],
+                      child: senderProfileImage == null || senderProfileImage.isEmpty
+                          ? Text(
+                              displayName.split(' ').map((e) => e.isNotEmpty ? e[0] : '').take(1).join().toUpperCase(),
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.w600,
+                                fontSize: 14,
+                              ),
+                            )
+                          : null,
+                    ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      displayName,
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    if (senderRole != null && type != 'like' && type != 'comment' && type != 'repost') ...[
+                      const SizedBox(height: 2),
+                      Text(
+                        '${senderRole}${senderDept != null ? ' | $senderDept' : ''}',
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: Colors.grey[600],
+                        ),
+                      ),
+                    ],
+                    const SizedBox(height: 6),
+                    Text(
+                      displayMessage,
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: Colors.grey[800],
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      time,
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: Colors.grey,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              if (!isRead)
+                Container(
+                  width: 10,
+                  height: 10,
+                  decoration: const BoxDecoration(
+                    color: Colors.red,
+                    shape: BoxShape.circle,
                   ),
                 ),
-    );
-  }
-
+            ],
+          ),
+          
+          // Action buttons for like/comment/repost/reminder
+          if (type == 'like') ...[
+            const SizedBox(height: 12),
+            if (message.contains('others') || message.contains('other'))
+              InkWell(
+                onTap: postId != null ? () => viewLikers(postId) : null,
+                child: Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: Colors.red.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.red.withOpacity(0.3)),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.favorite, color: Colors.red[700], size: 18),
+                      const SizedBox(width: 8),
+                      Text(
+                        'View all likes',
+                        style: TextStyle(
+                          color: Colors.red[700],
+                          fontWeight: FontWeight.w600,
+                          fontSize: 13,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              )
+            else
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: Colors.red.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.red.withOpacity(0.3)),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.favorite, color: Colors.red[700], size: 18),
+                    const SizedBox(width: 8),
+                    Text(
+                      'Tap to view post',
+                      style: TextStyle(
+                        color: Colors.red[700],
+                        fontWeight: FontWeight.w600,
+                        fontSize: 13,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+          ] else if (type == 'comment') ...[
+            const SizedBox(height: 12),
+            if (message.contains('others') || message.contains('other'))
+              InkWell(
+                onTap: postId != null ? () => viewCommenters(postId) : null,
+                child: Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: Colors.red.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.red.withOpacity(0.3)),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.comment, color: Colors.red[700], size: 18),
+                      const SizedBox(width: 8),
+                      Text(
+                        'View all comments',
+                        style: TextStyle(
+                          color: Colors.red[700],
+                          fontWeight: FontWeight.w600,
+                          fontSize: 13,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              )
+            else
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: Colors.red.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.red.withOpacity(0.3)),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.comment, color: Colors.red[700], size: 18),
+                    const SizedBox(width: 8),
+                    Text(
+                      'Tap to view post',
+                      style: TextStyle(
+                        color: Colors.red[700],
+                        fontWeight: FontWeight.w600,
+                        fontSize: 13,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+          ] else if (type == 'repost') ...[
+            const SizedBox(height: 12),
+            if (message.contains('others') || message.contains('other'))
+              InkWell(
+                onTap: postId != null ? () => viewReposters(postId) : null,
+                child: Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: Colors.red.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.red.withOpacity(0.3)),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.repeat, color: Colors.red[700], size: 18),
+                      const SizedBox(width: 8),
+                      Text(
+                        'View all reposts',
+                        style: TextStyle(
+                          color: Colors.red[700],
+                          fontWeight: FontWeight.w600,
+                          fontSize: 13,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              )
+            else
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: Colors.red.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.red.withOpacity(0.3)),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.repeat, color: Colors.red[700], size: 18),
+                    const SizedBox(width: 8),
+                    Text(
+                      'Tap to view post',
+                      style: TextStyle(
+                        color: Colors.red[700],
+                        fontWeight: FontWeight.w600,
+                        fontSize: 13,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+          ] else if (type == 'reminder') ...[
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.red.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.red.withOpacity(0.3)),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.calendar_today, color: Colors.red[700], size: 20),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      "Tap to view in calendar",
+                      style: TextStyle(
+                        color: Colors.red[700],
+                        fontWeight: FontWeight.w600,
+                        fontSize: 14,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ],
+      ),
+    ),
+  );
+}
+ 
   Future<void> navigateToPost(int postId) async {
     try {
       print('🚀 navigateToPost called with postId: $postId');
