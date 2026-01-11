@@ -901,11 +901,17 @@ Padding(
           "Discover ",
           style: TextStyle(
             fontSize: 22,
-            fontWeight: FontWeight.bold,
-            color: (!_showForYou && !_showFreelancingHub) ? Colors.black : Colors.grey,
-          ),
+            fontWeight:
+              (!_showForYou && !_showFreelancingHub)
+                  ? FontWeight.bold
+                  : FontWeight.w400,
+          color:
+              (!_showForYou && !_showFreelancingHub)
+                  ? Colors.black
+                  : Colors.grey,
         ),
       ),
+    ),
       const SizedBox(width: 10),
       GestureDetector(
         onTap: () {
@@ -919,11 +925,13 @@ Padding(
           "For You",
           style: TextStyle(
             fontSize: 20,
-            fontWeight: FontWeight.w400,
-            color: _showForYou ? Colors.black : Colors.grey,
-          ),
+            fontWeight:
+              _showForYou ? FontWeight.bold : FontWeight.w400,
+          color:
+              _showForYou ? Colors.black : Colors.grey,
         ),
       ),
+    ),
       const SizedBox(width: 10),
       GestureDetector(
         onTap: () {
@@ -942,7 +950,10 @@ Padding(
             "Freelancing Hub",
             style: TextStyle(
               fontSize: 20,
-              fontWeight: FontWeight.bold,
+              fontWeight:
+                _showFreelancingHub
+                    ? FontWeight.bold
+                    : FontWeight.w400,
               color: Colors.white,
             ),
           ),

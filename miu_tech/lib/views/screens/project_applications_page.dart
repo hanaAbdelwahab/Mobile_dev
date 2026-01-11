@@ -170,7 +170,7 @@ class _ProjectApplicationsPageState extends State<ProjectApplicationsPage> {
           ElevatedButton(
             onPressed: () => Navigator.pop(context, true),
             style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.deepPurple,
+              backgroundColor: Colors.redAccent,
               foregroundColor: Colors.white,
             ),
             child: const Text('Start Analysis'),
@@ -335,7 +335,7 @@ class _ProjectApplicationsPageState extends State<ProjectApplicationsPage> {
             ),
           ],
         ),
-        backgroundColor: Colors.deepPurple,
+        backgroundColor: Colors.redAccent,
         foregroundColor: Colors.white,
         elevation: 0,
         actions: [
@@ -465,7 +465,7 @@ class _ProjectApplicationsPageState extends State<ProjectApplicationsPage> {
               children: [
                 CircleAvatar(
                   radius: 28,
-                  backgroundColor: Colors.deepPurple[100],
+                  backgroundColor: Colors.redAccent[100],
                   backgroundImage: userImage != null
                       ? NetworkImage(userImage)
                       : null,
@@ -475,7 +475,7 @@ class _ProjectApplicationsPageState extends State<ProjectApplicationsPage> {
                           style: const TextStyle(
                             fontSize: 24,
                             fontWeight: FontWeight.bold,
-                            color: Colors.deepPurple,
+                            color: Colors.redAccent,
                           ),
                         )
                       : null,
@@ -510,7 +510,7 @@ class _ProjectApplicationsPageState extends State<ProjectApplicationsPage> {
                             vertical: 2,
                           ),
                           decoration: BoxDecoration(
-                            color: Colors.deepPurple.withOpacity(0.1),
+                            color: Colors.redAccent.withOpacity(0.1),
                             borderRadius: BorderRadius.circular(10),
                           ),
                           child: Text(
@@ -518,7 +518,7 @@ class _ProjectApplicationsPageState extends State<ProjectApplicationsPage> {
                             style: const TextStyle(
                               fontSize: 11,
                               fontWeight: FontWeight.w600,
-                              color: Colors.deepPurple,
+                              color: Colors.redAccent,
                             ),
                           ),
                         ),
@@ -584,7 +584,7 @@ class _ProjectApplicationsPageState extends State<ProjectApplicationsPage> {
                         style: const TextStyle(
                           fontSize: 13,
                           fontWeight: FontWeight.bold,
-                          color: Colors.deepPurple,
+                          color: Colors.redAccent,
                         ),
                       ),
                     ],

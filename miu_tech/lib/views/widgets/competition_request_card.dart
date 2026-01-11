@@ -130,144 +130,141 @@ Future<void> _cancelJoinRequest() async {
 
         return Stack(
           children: [
-            Container(
-              margin: const EdgeInsets.symmetric(vertical: 8),
-              padding: const EdgeInsets.all(14),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(16),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.06),
-                    blurRadius: 8,
-                    offset: const Offset(0, 4),
+           Container(
+  margin: const EdgeInsets.symmetric(vertical: 10),
+  padding: const EdgeInsets.all(16),
+  decoration: BoxDecoration(
+    color: Colors.white,
+    borderRadius: BorderRadius.circular(20),
+    boxShadow: [
+      BoxShadow(
+        color: Colors.black.withOpacity(0.05),
+        blurRadius: 12,
+        offset: const Offset(0, 6),
+      ),
+    ],
+  ),
+  child: Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      // ================= HEADER =================
+      Row(
+        children: [
+          GestureDetector(
+            onTap: () {
+              if (widget.request.userId != widget.currentUserId) {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => OtherUserProfilePage(
+                      userId: widget.request.userId.toString(),
+                      currentUserId:
+                          widget.currentUserId.toString(),
+                    ),
                   ),
-                ],
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // 🔝 Header
-                 Row(
-  children: [
-    GestureDetector(
-      onTap: () {
-        // 🚀 Navigate to user profile
-        if (widget.request.userId != widget.currentUserId) {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => OtherUserProfilePage(
-                userId: widget.request.userId.toString(),
-                currentUserId: widget.currentUserId.toString(),
+                );
+              }
+            },
+            child: CircleAvatar(
+              radius: 24,
+              backgroundImage:
+                  avatarUrl != null ? NetworkImage(avatarUrl) : null,
+              backgroundColor: Colors.grey[200],
+              child: avatarUrl == null
+                  ? const Icon(Icons.person, color: Colors.grey)
+                  : null,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              userName,
+              style: const TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.w600,
               ),
             ),
-          );
-        }
-      },
-      child: Row(
-        children: [
-          CircleAvatar(
-            radius: 22,
-            backgroundImage: avatarUrl != null
-                ? NetworkImage(avatarUrl)
-                : null,
-            child: avatarUrl == null
-                ? const Icon(Icons.person)
-                : null,
           ),
-          const SizedBox(width: 10),
-          Text(
-            userName,
-            style: const TextStyle(
-              fontWeight: FontWeight.bold,
-              fontSize: 14,
+          ElevatedButton(
+            onPressed:
+                _requested ? _cancelJoinRequest : _sendJoinRequest,
+            style: ElevatedButton.styleFrom(
+              backgroundColor:
+                  _requested ? Colors.grey.shade300 : Colors.redAccent,
+              foregroundColor:
+                  _requested ? Colors.grey.shade700 : Colors.white,
+              elevation: 0,
+              padding: const EdgeInsets.symmetric(
+                horizontal: 14,
+                vertical: 8,
+              ),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(20),
+              ),
+            ),
+            child: Text(
+              _requested ? "Request Sent" : "Request to Join",
+              style: const TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+              ),
             ),
           ),
         ],
       ),
-    ),
 
-    const Spacer(),
+      const SizedBox(height: 14),
 
-    // ➕ / ✔ Button (زي ما هو)
-    ElevatedButton(
-      onPressed: () {
-        if (_requested) {
-          _cancelJoinRequest();
-        } else {
-          _sendJoinRequest();
-        }
-      },
-      style: ElevatedButton.styleFrom(
-        backgroundColor:
-            _requested ? Colors.grey.shade300 : Colors.red,
-        foregroundColor:
-            _requested ? Colors.grey.shade700 : Colors.white,
-        elevation: _requested ? 0 : 2,
-        padding: const EdgeInsets.symmetric(
-          horizontal: 14,
-          vertical: 8,
-        ),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(20),
-        ),
-      ),
-      child: Text(
-        _requested ? "Request Sent" : "Request to Join Team",
+      // ================= TITLE =================
+      Text(
+        widget.request.title,
         style: const TextStyle(
-          fontSize: 12,
-          fontWeight: FontWeight.w600,
+          fontSize: 16,
+          fontWeight: FontWeight.bold,
         ),
       ),
-    ),
-  ],
-),
 
-                  const SizedBox(height: 12),
+      const SizedBox(height: 6),
 
-                  // 🔴 Title
-                  Text(
-                    widget.request.title,
-                    style: const TextStyle(
-                      color: Colors.red,
-                      fontWeight: FontWeight.w700,
-                      fontSize: 14,
-                    ),
-                  ),
+      // ================= DESCRIPTION =================
+      Text(
+        widget.request.description,
+        style: TextStyle(
+          fontSize: 13,
+          color: Colors.grey.shade700,
+          height: 1.4,
+        ),
+      ),
 
-                  const SizedBox(height: 6),
+      const SizedBox(height: 12),
 
-                  // 📄 Description
-                  Text(
-                    widget.request.description,
-                    style: TextStyle(
-                      fontSize: 13,
-                      color: Colors.grey.shade700,
-                      height: 1.4,
-                    ),
-                  ),
-
-                  const SizedBox(height: 10),
-
-                  // 🏷 Skills with @
-                  Wrap(
-                    spacing: 6,
-                    runSpacing: 6,
-                    children: skills.map((s) {
-                      return Text(
-                        "@${s.trim()}",
-                        style: const TextStyle(
-                          color: Colors.red,
-                          fontSize: 12,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      );
-                    }).toList(),
-                  ),
-                ],
+      // ================= SKILLS =================
+      Wrap(
+        spacing: 8,
+        runSpacing: 8,
+        children: skills.map((skill) {
+          return Container(
+            padding: const EdgeInsets.symmetric(
+              horizontal: 10,
+              vertical: 6,
+            ),
+            decoration: BoxDecoration(
+              color: Colors.grey.shade100,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Text(
+              skill.trim(),
+              style: const TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w500,
               ),
             ),
+          );
+        }).toList(),
+      ),
+    ],
+  ),
+),
 
             // 🎉 Confetti
             Positioned.fill(

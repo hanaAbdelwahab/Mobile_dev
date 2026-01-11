@@ -170,11 +170,21 @@ class _LoginPageState extends State<LoginPage> {
                     width: 100,
                     alignment: Alignment.center,
                     decoration: BoxDecoration(
-                      color: Colors.red,
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: const Icon(Icons.lock_outline, size: 50, color: Colors.white),
-                  ),
+                      color: Colors.white,
+    borderRadius: BorderRadius.circular(20),
+    boxShadow: [
+      BoxShadow(
+        color: Colors.black.withOpacity(0.08),
+        blurRadius: 10,
+        offset: const Offset(0, 4),
+      ),
+    ],
+  ),
+  child: Image.asset(
+    'assets/miu_logo1.png',
+    fit: BoxFit.contain,
+  ),
+),
                   const SizedBox(height: 40),
 
                   const Text(

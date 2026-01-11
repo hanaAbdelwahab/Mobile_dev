@@ -245,12 +245,12 @@ class _ManageAnnouncementsPageState extends State<ManageAnnouncementsPage> {
               Container(
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: Colors.purple.withOpacity(0.1),
+                  color: Colors.redAccent.withOpacity(0.1),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Icon(
                   isEditing ? Icons.edit : Icons.add,
-                  color: Colors.purple,
+                  color: Colors.redAccent,
                   size: 24,
                 ),
               ),
@@ -491,7 +491,7 @@ class _ManageAnnouncementsPageState extends State<ManageAnnouncementsPage> {
                 }
               },
               style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.purple,
+                backgroundColor: Colors.redAccent,
                 padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
               ),
               icon: Icon(isEditing ? Icons.save : Icons.add, size: 18),
@@ -591,10 +591,10 @@ class _ManageAnnouncementsPageState extends State<ManageAnnouncementsPage> {
             Container(
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
-                color: Colors.purple.withOpacity(0.1),
+                color: Colors.redAccent.withOpacity(0.1),
                 borderRadius: BorderRadius.circular(8),
               ),
-              child: const Icon(Icons.info_outline, color: Colors.purple, size: 24),
+              child: const Icon(Icons.info_outline, color: Colors.redAccent, size: 24),
             ),
             const SizedBox(width: 12),
             const Expanded(child: Text('Announcement Details')),
@@ -639,7 +639,7 @@ class _ManageAnnouncementsPageState extends State<ManageAnnouncementsPage> {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Icon(icon, size: 20, color: Colors.purple),
+        Icon(icon, size: 20, color: Colors.redAccent),
         const SizedBox(width: 12),
         Expanded(
           child: Column(
@@ -671,7 +671,7 @@ class _ManageAnnouncementsPageState extends State<ManageAnnouncementsPage> {
       backgroundColor: Colors.grey[100],
       appBar: AppBar(
         title: const Text('Manage Announcements'),
-        backgroundColor: Colors.purple,
+        backgroundColor: Colors.redAccent,
         foregroundColor: Colors.white,
         elevation: 0,
         actions: [
@@ -684,7 +684,7 @@ class _ManageAnnouncementsPageState extends State<ManageAnnouncementsPage> {
       ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => _showAnnouncementDialog(),
-        backgroundColor: Colors.purple,
+        backgroundColor: Colors.redAccent,
         icon: const Icon(Icons.add),
         label: const Text('New Announcement'),
       ),
@@ -707,7 +707,7 @@ class _ManageAnnouncementsPageState extends State<ManageAnnouncementsPage> {
                     vertical: 6,
                   ),
                   decoration: BoxDecoration(
-                    color: Colors.purple[50],
+                    color: Colors.redAccent[50],
                     borderRadius: BorderRadius.circular(20),
                   ),
                   child: Text(
@@ -715,7 +715,7 @@ class _ManageAnnouncementsPageState extends State<ManageAnnouncementsPage> {
                     style: const TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.w600,
-                      color: Colors.purple,
+                      color: Colors.redAccent,
                     ),
                   ),
                 ),
@@ -749,7 +749,7 @@ class _ManageAnnouncementsPageState extends State<ManageAnnouncementsPage> {
                               icon: const Icon(Icons.refresh),
                               label: const Text('Retry'),
                               style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.purple,
+                                backgroundColor: Colors.redAccent,
                                 foregroundColor: Colors.white,
                               ),
                             ),
@@ -798,10 +798,10 @@ class _ManageAnnouncementsPageState extends State<ManageAnnouncementsPage> {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         decoration: BoxDecoration(
-          color: isSelected ? Colors.purple : Colors.grey[200],
+          color: isSelected ? Colors.redAccent : Colors.grey[200],
           borderRadius: BorderRadius.circular(20),
           border: Border.all(
-            color: isSelected ? Colors.purple : Colors.transparent,
+            color: isSelected ? Colors.redAccent : Colors.transparent,
             width: 2,
           ),
         ),
@@ -842,7 +842,7 @@ class _ManageAnnouncementsPageState extends State<ManageAnnouncementsPage> {
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: isUpcoming ? Colors.green : isPast ? Colors.grey.shade300 : Colors.purple.shade200,
+          color: isUpcoming ? Colors.green : isPast ? Colors.grey.shade300 : Colors.redAccent.shade200,
           width: 2,
         ),
         boxShadow: [
@@ -863,7 +863,7 @@ class _ManageAnnouncementsPageState extends State<ManageAnnouncementsPage> {
                   ? Colors.green.withOpacity(0.1)
                   : isPast
                       ? Colors.grey.withOpacity(0.1)
-                      : Colors.purple.withOpacity(0.1),
+                      : Colors.redAccent.withOpacity(0.1),
               borderRadius: const BorderRadius.only(
                 topLeft: Radius.circular(16),
                 topRight: Radius.circular(16),
@@ -878,12 +878,12 @@ class _ManageAnnouncementsPageState extends State<ManageAnnouncementsPage> {
                         ? Colors.green.withOpacity(0.2)
                         : isPast
                             ? Colors.grey.withOpacity(0.2)
-                            : Colors.purple.withOpacity(0.2),
+                            : Colors.redAccent.withOpacity(0.2),
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Icon(
                     Icons.campaign,
-                    color: isUpcoming ? Colors.green : isPast ? Colors.grey : Colors.purple,
+                    color: isUpcoming ? Colors.green : isPast ? Colors.grey : Colors.redAccent,
                     size: 24,
                   ),
                 ),
@@ -901,7 +901,7 @@ class _ManageAnnouncementsPageState extends State<ManageAnnouncementsPage> {
                         children: [
                           CircleAvatar(
                             radius: 10,
-                            backgroundColor: Colors.purple[100],
+                            backgroundColor: Colors.redAccent[100],
                             backgroundImage: userImage != null ? NetworkImage(userImage) : null,
                             child: userImage == null
                                 ? Text(
@@ -909,7 +909,7 @@ class _ManageAnnouncementsPageState extends State<ManageAnnouncementsPage> {
                                     style: const TextStyle(
                                       fontSize: 10,
                                       fontWeight: FontWeight.bold,
-                                      color: Colors.purple,
+                                      color: Colors.redAccent,
                                     ),
                                   )
                                 : null,
@@ -927,7 +927,7 @@ class _ManageAnnouncementsPageState extends State<ManageAnnouncementsPage> {
                             Container(
                               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                               decoration: BoxDecoration(
-                                color: Colors.purple.withOpacity(0.1),
+                                color: Colors.redAccent.withOpacity(0.1),
                                 borderRadius: BorderRadius.circular(10),
                               ),
                               child: Text(
@@ -935,7 +935,7 @@ class _ManageAnnouncementsPageState extends State<ManageAnnouncementsPage> {
                                 style: const TextStyle(
                                   fontSize: 11,
                                   fontWeight: FontWeight.w600,
-                                  color: Colors.purple,
+                                  color: Colors.redAccent,
                                 ),
                               ),
                             ),
@@ -948,7 +948,7 @@ class _ManageAnnouncementsPageState extends State<ManageAnnouncementsPage> {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                   decoration: BoxDecoration(
-                    color: isUpcoming ? Colors.green : isPast ? Colors.grey : Colors.purple,
+                    color: isUpcoming ? Colors.green : isPast ? Colors.grey : Colors.redAccent,
                     borderRadius: BorderRadius.circular(20),
                   ),
                   child: Text(
@@ -1023,8 +1023,8 @@ class _ManageAnnouncementsPageState extends State<ManageAnnouncementsPage> {
                     icon: const Icon(Icons.visibility, size: 16),
                     label: const Text('View', style: TextStyle(fontSize: 13)),
                     style: OutlinedButton.styleFrom(
-                      foregroundColor: Colors.purple,
-                      side: const BorderSide(color: Colors.purple),
+                      foregroundColor: Colors.redAccent,
+                      side: const BorderSide(color: Colors.redAccent),
                       padding: const EdgeInsets.symmetric(vertical: 10),
                     ),
                   ),
