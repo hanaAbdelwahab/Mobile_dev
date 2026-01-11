@@ -3,7 +3,7 @@ import 'package:provider/provider.dart';
 import '../../providers/FreelancingHubProvider.dart';
 import '../../models/FreelanceProjectModel.dart';
 import '../widgets/create_freelance_project_modal.dart';
-import 'project_applications_page.dart';  // ✅ NEW: Specific project applications page
+import 'project_applications_page.dart'; // ✅ NEW: Specific project applications page
 import 'package:intl/intl.dart';
 
 class ManageFreelancingPage extends StatefulWidget {
@@ -17,17 +17,17 @@ class _ManageFreelancingPageState extends State<ManageFreelancingPage> {
   @override
   void initState() {
     super.initState();
-    
+
     // Initialize provider to load applications
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final provider = context.read<FreelancingHubProvider>();
-      
+
       if (!provider.isInitialized) {
         debugPrint('🚀 ManageFreelancing: Initializing provider...');
-        provider.initialize(showInactive: true);  // ✅ Admin sees ALL projects
+        provider.initialize(showInactive: true); // ✅ Admin sees ALL projects
       } else {
         debugPrint('🔄 ManageFreelancing: Refreshing data...');
-        provider.loadProjects(showInactive: true);  // ✅ Admin sees ALL projects
+        provider.loadProjects(showInactive: true); // ✅ Admin sees ALL projects
         provider.loadUserApplications();
       }
     });
@@ -77,11 +77,11 @@ class _ManageFreelancingPageState extends State<ManageFreelancingPage> {
           context,
           listen: false,
         );
-        
+
         final success = await provider.toggleProjectStatus(project.projectId);
-        
+
         if (!mounted) return;
-        
+
         if (success) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
@@ -102,10 +102,7 @@ class _ManageFreelancingPageState extends State<ManageFreelancingPage> {
       } catch (e) {
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('❌ Error: $e'),
-            backgroundColor: Colors.red,
-          ),
+          SnackBar(content: Text('❌ Error: $e'), backgroundColor: Colors.red),
         );
       }
     }
@@ -140,11 +137,11 @@ class _ManageFreelancingPageState extends State<ManageFreelancingPage> {
           context,
           listen: false,
         );
-        
+
         final success = await provider.deleteProject(project.projectId);
-        
+
         if (!mounted) return;
-        
+
         if (success) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
@@ -163,10 +160,7 @@ class _ManageFreelancingPageState extends State<ManageFreelancingPage> {
       } catch (e) {
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('❌ Error: $e'),
-            backgroundColor: Colors.red,
-          ),
+          SnackBar(content: Text('❌ Error: $e'), backgroundColor: Colors.red),
         );
       }
     }
@@ -186,7 +180,9 @@ class _ManageFreelancingPageState extends State<ManageFreelancingPage> {
             icon: const Icon(Icons.refresh),
             onPressed: () {
               // ✅ Admin refresh: Load ALL projects
-              context.read<FreelancingHubProvider>().loadProjects(showInactive: true);
+              context.read<FreelancingHubProvider>().loadProjects(
+                showInactive: true,
+              );
               context.read<FreelancingHubProvider>().loadUserApplications();
             },
           ),
@@ -298,7 +294,7 @@ class _ManageFreelancingPageState extends State<ManageFreelancingPage> {
     FreelancingHubProvider provider,
   ) {
     final applicationCount = provider.getApplicationCount(project.projectId);
-    
+
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
       decoration: BoxDecoration(
@@ -356,11 +352,7 @@ class _ManageFreelancingPageState extends State<ManageFreelancingPage> {
                             },
                           ),
                         )
-                      : const Icon(
-                          Icons.business,
-                          color: Colors.red,
-                          size: 24,
-                        ),
+                      : const Icon(Icons.business, color: Colors.red, size: 24),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
@@ -377,10 +369,7 @@ class _ManageFreelancingPageState extends State<ManageFreelancingPage> {
                       const SizedBox(height: 4),
                       Text(
                         'Posted ${_timeAgo(project.postedAt)}',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: Colors.grey[600],
-                        ),
+                        style: TextStyle(fontSize: 12, color: Colors.grey[600]),
                       ),
                     ],
                   ),
@@ -425,10 +414,7 @@ class _ManageFreelancingPageState extends State<ManageFreelancingPage> {
                   project.description,
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: Colors.grey[700],
-                  ),
+                  style: TextStyle(fontSize: 14, color: Colors.grey[700]),
                 ),
                 const SizedBox(height: 12),
 
@@ -510,8 +496,9 @@ class _ManageFreelancingPageState extends State<ManageFreelancingPage> {
                       style: const TextStyle(fontSize: 13),
                     ),
                     style: OutlinedButton.styleFrom(
-                      foregroundColor:
-                          project.isActive ? Colors.orange : Colors.green,
+                      foregroundColor: project.isActive
+                          ? Colors.orange
+                          : Colors.green,
                       side: BorderSide(
                         color: project.isActive ? Colors.orange : Colors.green,
                       ),
@@ -523,7 +510,7 @@ class _ManageFreelancingPageState extends State<ManageFreelancingPage> {
                   ),
                 ),
                 const SizedBox(width: 8),
-                
+
                 // ✅ UPDATED: Pass project to applications page
                 Expanded(
                   child: ElevatedButton.icon(
@@ -531,13 +518,14 @@ class _ManageFreelancingPageState extends State<ManageFreelancingPage> {
                       Navigator.push(
                         context,
                         MaterialPageRoute(
-                          builder: (_) => ProjectApplicationsPage(project: project),
+                          builder: (_) =>
+                              ProjectApplicationsPage(project: project),
                         ),
                       );
                     },
                     icon: const Icon(Icons.assignment_ind, size: 18),
                     label: Text(
-                      applicationCount > 0 
+                      applicationCount > 0
                           ? 'View ($applicationCount)'
                           : 'Applications',
                       style: const TextStyle(fontSize: 13),
@@ -553,15 +541,12 @@ class _ManageFreelancingPageState extends State<ManageFreelancingPage> {
                   ),
                 ),
                 const SizedBox(width: 8),
-                
+
                 Expanded(
                   child: ElevatedButton.icon(
                     onPressed: () => _deleteProject(project),
                     icon: const Icon(Icons.delete, size: 18),
-                    label: const Text(
-                      'Delete',
-                      style: TextStyle(fontSize: 13),
-                    ),
+                    label: const Text('Delete', style: TextStyle(fontSize: 13)),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.red,
                       foregroundColor: Colors.white,
@@ -586,13 +571,7 @@ class _ManageFreelancingPageState extends State<ManageFreelancingPage> {
       children: [
         Icon(icon, size: 16, color: Colors.grey[600]),
         const SizedBox(width: 6),
-        Text(
-          text,
-          style: TextStyle(
-            fontSize: 13,
-            color: Colors.grey[700],
-          ),
-        ),
+        Text(text, style: TextStyle(fontSize: 13, color: Colors.grey[700])),
       ],
     );
   }

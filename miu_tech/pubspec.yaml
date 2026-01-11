@@ -28,6 +28,7 @@ dependencies:
   cloudinary_public: ^0.23.1
   cached_network_image: ^3.3.0
   confetti: ^0.7.0
+  flutter_dotenv: ^5.2.1
 
 dev_dependencies:
   flutter_test:
@@ -41,3 +42,4 @@ flutter:
   assets:
     - assets/miu_logo1.png
     - assets/newlogo.png
+    - .env
