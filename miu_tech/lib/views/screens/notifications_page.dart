@@ -4,7 +4,7 @@ import 'package:provider/provider.dart';
 import '../../providers/friendship_provider.dart';
 import 'package:miu_tech/views/screens/comments_page.dart';
 import '../screens/calender_screen.dart'; // or calendar_screen.dart depending on your file name
-
+import '../../providers/notifications_provider.dart';
 final supabase = Supabase.instance.client;
 
 class NotificationsPage extends StatefulWidget {
@@ -378,6 +378,11 @@ final filteredGeneralNotifications = generalNotificationsData.where((notificatio
         );
       }
     }
+  // Update notification count
+if (mounted) {
+  final notificationProvider = Provider.of<NotificationsProvider>(context, listen: false);
+  notificationProvider.decrementCount(); // Decrement for accepted request
+}
   }
 
   Future<void> rejectFollow(int fromUserId) async {
@@ -428,26 +433,37 @@ final filteredGeneralNotifications = generalNotificationsData.where((notificatio
         );
       }
     }
+    // Update notification count  
+if (mounted) {
+  final notificationProvider = Provider.of<NotificationsProvider>(context, listen: false);
+  notificationProvider.decrementCount(); // Decrement for rejected request
+}
   }
 
-  Future<void> markAsRead(int notificationId) async {
-    try {
-      await supabase
-          .from('notifications')
-          .update({'is_read': true})
-          .eq('notification_id', notificationId);
+Future<void> markAsRead(int notificationId) async {
+  try {
+    await supabase
+        .from('notifications')
+        .update({'is_read': true})
+        .eq('notification_id', notificationId);
 
-      // Update local state
-      setState(() {
-        final index = notifications.indexWhere((n) => n['notification_id'] == notificationId);
-        if (index != -1) {
-          notifications[index]['is_read'] = true;
-        }
-      });
-    } catch (e) {
-      print('❌ Error marking notification as read: $e');
+    // Update the provider count
+    if (mounted) {
+      final notificationProvider = Provider.of<NotificationsProvider>(context, listen: false);
+      notificationProvider.fetchUnreadCount(); // Refresh count
     }
+
+    // Update local state
+    setState(() {
+      final index = notifications.indexWhere((n) => n['notification_id'] == notificationId);
+      if (index != -1) {
+        notifications[index]['is_read'] = true;
+      }
+    });
+  } catch (e) {
+    print('❌ Error marking notification as read: $e');
   }
+}
 
   Future<void> viewLikers(int postId) async {
     try {
@@ -1325,6 +1341,11 @@ Widget _buildFolderCard({
         );
       }
     }
+  // Update notification count
+if (mounted) {
+  final notificationProvider = Provider.of<NotificationsProvider>(context, listen: false);
+  notificationProvider.decrementCount();
+}
   }
 
   Future<void> rejectCompetitionRequest(int requestId) async {
@@ -1352,6 +1373,11 @@ Widget _buildFolderCard({
         );
       }
     }
+  // Update notification count
+if (mounted) {
+  final notificationProvider = Provider.of<NotificationsProvider>(context, listen: false);
+  notificationProvider.decrementCount();
+}
   }
   @override
   Widget build(BuildContext context) {

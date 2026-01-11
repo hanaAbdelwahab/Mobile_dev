@@ -11,6 +11,7 @@ import '../widgets/user_drawer_header.dart';
 import '../widgets/category_chip.dart';
 import 'stories_row.dart';
 import 'package:provider/provider.dart';
+import '../../providers/notifications_provider.dart';
 import '../../providers/post_provider.dart';
 import '../../providers/repost_provider.dart';
 import '../../controllers/user_controller.dart';
@@ -403,6 +404,12 @@ class _HomePageState extends State<HomePage> {
     _confettiController = ConfettiController(
       duration: const Duration(seconds: 2),
     );
+     WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        final notificationProvider = Provider.of<NotificationsProvider>(context, listen: false);
+        notificationProvider.updateUserId(widget.currentUserId);
+      }
+    });
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<StoryProvider>().loadStories(
         currentUserId: widget.currentUserId,
