@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../../providers/FreelancingHubProvider.dart';
 import '../../models/FreelanceProjectModel.dart';
 import '../widgets/create_freelance_project_modal.dart';
+import 'project_applications_page.dart';  // ✅ NEW: Specific project applications page
 import 'package:intl/intl.dart';
 
 class ManageFreelancingPage extends StatefulWidget {
@@ -16,8 +17,19 @@ class _ManageFreelancingPageState extends State<ManageFreelancingPage> {
   @override
   void initState() {
     super.initState();
+    
+    // Initialize provider to load applications
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<FreelancingHubProvider>().loadProjects();
+      final provider = context.read<FreelancingHubProvider>();
+      
+      if (!provider.isInitialized) {
+        debugPrint('🚀 ManageFreelancing: Initializing provider...');
+        provider.initialize(showInactive: true);  // ✅ Admin sees ALL projects
+      } else {
+        debugPrint('🔄 ManageFreelancing: Refreshing data...');
+        provider.loadProjects(showInactive: true);  // ✅ Admin sees ALL projects
+        provider.loadUserApplications();
+      }
     });
   }
 
@@ -26,8 +38,8 @@ class _ManageFreelancingPageState extends State<ManageFreelancingPage> {
       context: context,
       builder: (context) => const CreateFreelanceProjectModal(),
     ).then((_) {
-      // Reload projects after modal closes
-      context.read<FreelancingHubProvider>().loadProjects();
+      // Reload projects after modal closes - Admin sees ALL
+      context.read<FreelancingHubProvider>().loadProjects(showInactive: true);
     });
   }
 
@@ -173,7 +185,9 @@ class _ManageFreelancingPageState extends State<ManageFreelancingPage> {
           IconButton(
             icon: const Icon(Icons.refresh),
             onPressed: () {
-              context.read<FreelancingHubProvider>().loadProjects();
+              // ✅ Admin refresh: Load ALL projects
+              context.read<FreelancingHubProvider>().loadProjects(showInactive: true);
+              context.read<FreelancingHubProvider>().loadUserApplications();
             },
           ),
         ],
@@ -209,7 +223,7 @@ class _ManageFreelancingPageState extends State<ManageFreelancingPage> {
                   ),
                   const SizedBox(height: 16),
                   ElevatedButton.icon(
-                    onPressed: () => provider.loadProjects(),
+                    onPressed: () => provider.loadProjects(showInactive: true),
                     icon: const Icon(Icons.refresh),
                     label: const Text('Retry'),
                     style: ElevatedButton.styleFrom(
@@ -258,7 +272,13 @@ class _ManageFreelancingPageState extends State<ManageFreelancingPage> {
           }
 
           return RefreshIndicator(
-            onRefresh: () => provider.loadProjects(),
+            onRefresh: () async {
+              // ✅ Admin refresh: Load ALL projects
+              await Future.wait([
+                provider.loadProjects(showInactive: true),
+                provider.loadUserApplications(),
+              ]);
+            },
             child: ListView.builder(
               padding: const EdgeInsets.all(16),
               itemCount: provider.projects.length,
@@ -503,6 +523,37 @@ class _ManageFreelancingPageState extends State<ManageFreelancingPage> {
                   ),
                 ),
                 const SizedBox(width: 8),
+                
+                // ✅ UPDATED: Pass project to applications page
+                Expanded(
+                  child: ElevatedButton.icon(
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => ProjectApplicationsPage(project: project),
+                        ),
+                      );
+                    },
+                    icon: const Icon(Icons.assignment_ind, size: 18),
+                    label: Text(
+                      applicationCount > 0 
+                          ? 'View ($applicationCount)'
+                          : 'Applications',
+                      style: const TextStyle(fontSize: 13),
+                    ),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.deepPurple,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 10),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                
                 Expanded(
                   child: ElevatedButton.icon(
                     onPressed: () => _deleteProject(project),

@@ -2,14 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'manage_users_page.dart';
-import 'manage_posts_page.dart';
-import 'manage_projects_page.dart';
-import 'manage_events_page.dart';
-import 'manage_opportunities_page.dart';
+import 'manage_posts_by_category_page.dart';
+import 'manage_events_page.dart';  // ✅ Events table
+import 'manage_announcements_page.dart';  // ✅ Announcement table
 import 'manage_freelancing_page.dart';
-import 'admin_reports_page.dart';
-import 'manage_applications_page.dart';
-import 'manage_feedback_page.dart'; // ← Add this new page
+import 'manage_feedback_page.dart';
 
 class AdminHomePage extends StatefulWidget {
   const AdminHomePage({Key? key}) : super(key: key);
@@ -21,8 +18,8 @@ class AdminHomePage extends StatefulWidget {
 class _AdminHomePageState extends State<AdminHomePage> {
   int _totalUsers = 0;
   int _totalPosts = 0;
-  int _totalProjects = 0;
   int _totalFreelanceProjects = 0;
+  int _totalEvents = 0;
   int _pendingFeedback = 0;
   int _pendingReports = 0;
   int _unreadNotifications = 0;
@@ -42,7 +39,7 @@ class _AdminHomePageState extends State<AdminHomePage> {
     });
     
     try {
-      // Existing counts
+      // Users count
       int usersCount = 0;
       try {
         final usersData = await Supabase.instance.client
@@ -54,28 +51,31 @@ class _AdminHomePageState extends State<AdminHomePage> {
         debugPrint('❌ Error counting users: $e');
       }
 
+      // Posts count
       int postsCount = 0;
       try {
         final postsData = await Supabase.instance.client
             .from('posts')
-            .select('id');
+            .select('post_id');
         postsCount = (postsData as List).length;
         debugPrint('✅ Posts count: $postsCount');
       } catch (e) {
         debugPrint('❌ Error counting posts: $e');
       }
 
-      int projectsCount = 0;
+      // Events count
+      int eventsCount = 0;
       try {
-        final projectsData = await Supabase.instance.client
-            .from('projects')
-            .select('id');
-        projectsCount = (projectsData as List).length;
-        debugPrint('✅ Projects count: $projectsCount');
+        final eventsData = await Supabase.instance.client
+            .from('events')
+            .select('event_id');
+        eventsCount = (eventsData as List).length;
+        debugPrint('✅ Events count: $eventsCount');
       } catch (e) {
-        debugPrint('❌ Error counting projects: $e');
+        debugPrint('❌ Error counting events: $e');
       }
 
+      // Freelance projects count
       int freelanceCount = 0;
       try {
         final freelanceData = await Supabase.instance.client
@@ -87,7 +87,7 @@ class _AdminHomePageState extends State<AdminHomePage> {
         debugPrint('❌ Error counting freelance projects: $e');
       }
 
-      // NEW: Count pending feedback
+      // Count pending feedback
       int feedbackCount = 0;
       try {
         final feedbackData = await Supabase.instance.client
@@ -100,7 +100,7 @@ class _AdminHomePageState extends State<AdminHomePage> {
         debugPrint('❌ Error counting feedback: $e');
       }
 
-      // NEW: Count pending reports
+      // Count pending reports
       int reportsCount = 0;
       try {
         final reportsData = await Supabase.instance.client
@@ -113,7 +113,7 @@ class _AdminHomePageState extends State<AdminHomePage> {
         debugPrint('❌ Error counting reports: $e');
       }
 
-      // NEW: Count unread notifications
+      // Count unread notifications
       int notificationsCount = 0;
       try {
         final notificationsData = await Supabase.instance.client
@@ -129,8 +129,8 @@ class _AdminHomePageState extends State<AdminHomePage> {
       setState(() {
         _totalUsers = usersCount;
         _totalPosts = postsCount;
-        _totalProjects = projectsCount;
         _totalFreelanceProjects = freelanceCount;
+        _totalEvents = eventsCount;
         _pendingFeedback = feedbackCount;
         _pendingReports = reportsCount;
         _unreadNotifications = notificationsCount;
@@ -155,7 +155,7 @@ class _AdminHomePageState extends State<AdminHomePage> {
         foregroundColor: Colors.white,
         elevation: 0,
         actions: [
-          // NEW: Notifications badge
+          // Notifications badge
           if (_unreadNotifications > 0)
             Stack(
               children: [
@@ -204,6 +204,57 @@ class _AdminHomePageState extends State<AdminHomePage> {
             onPressed: _loadStats,
             tooltip: 'Refresh Statistics',
           ),
+          IconButton(
+            icon: const Icon(Icons.logout),
+            onPressed: () async {
+              final confirm = await showDialog<bool>(
+                context: context,
+                builder: (ctx) => AlertDialog(
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  title: const Text('Logout'),
+                  content: const Text('Are you sure you want to logout?'),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(ctx, false),
+                      child: const Text('Cancel'),
+                    ),
+                    ElevatedButton(
+                      onPressed: () => Navigator.pop(ctx, true),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.red,
+                      ),
+                      child: const Text(
+                        'Logout',
+                        style: TextStyle(color: Colors.white),
+                      ),
+                    ),
+                  ],
+                ),
+              );
+
+              if (confirm == true) {
+                try {
+                  await Supabase.instance.client.auth.signOut();
+                  
+                  if (mounted) {
+                    Navigator.pushReplacementNamed(context, '/login');
+                  }
+                } catch (e) {
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('Error: $e'),
+                        backgroundColor: Colors.red,
+                      ),
+                    );
+                  }
+                }
+              }
+            },
+            tooltip: 'Logout',
+          ),
         ],
       ),
       body: _isLoading
@@ -239,7 +290,7 @@ class _AdminHomePageState extends State<AdminHomePage> {
                         ),
                       ),
 
-                    // NEW: Alerts Section (if there are pending items)
+                    // Alerts Section (if there are pending items)
                     if (_pendingFeedback > 0 || _pendingReports > 0) ...[
                       Container(
                         padding: const EdgeInsets.all(16),
@@ -350,19 +401,19 @@ class _AdminHomePageState extends State<AdminHomePage> {
                       children: [
                         Expanded(
                           child: _buildStatCard(
-                            'Projects',
-                            _totalProjects.toString(),
-                            Icons.school,
-                            Colors.orange,
+                            'Freelance',
+                            _totalFreelanceProjects.toString(),
+                            Icons.work,
+                            Colors.red,
                           ),
                         ),
                         const SizedBox(width: 12),
                         Expanded(
                           child: _buildStatCard(
-                            'Freelance',
-                            _totalFreelanceProjects.toString(),
-                            Icons.work,
-                            Colors.red,
+                            'Events',
+                            _totalEvents.toString(),
+                            Icons.event,
+                            Colors.purple,
                           ),
                         ),
                       ],
@@ -379,7 +430,7 @@ class _AdminHomePageState extends State<AdminHomePage> {
                     ),
                     const SizedBox(height: 16),
 
-                    // NEW: Feedback & Reports Management (placed first for priority)
+                    // Feedback & Reports Management (placed first for priority)
                     _buildManagementOption(
                       'Feedback & Reports',
                       '$_pendingFeedback pending feedback • $_pendingReports pending reports',
@@ -414,41 +465,27 @@ class _AdminHomePageState extends State<AdminHomePage> {
                       },
                     ),
                     const SizedBox(height: 12),
+                    
                     _buildManagementOption(
-                      'Manage Posts',
-                      'Moderate and manage user posts',
+                      'Manage Posts by Category',
+                      'View and moderate posts organized by category',
                       Icons.article_outlined,
                       Colors.green,
                       () async {
                         await Navigator.push(
                           context,
                           MaterialPageRoute(
-                            builder: (_) => const ManagePostsPage(),
+                            builder: (_) => const ManagePostsByCategoryPage(),
                           ),
                         );
                         _loadStats();
                       },
                     ),
                     const SizedBox(height: 12),
-                    _buildManagementOption(
-                      'Manage Projects',
-                      'Oversee graduation projects',
-                      Icons.school_outlined,
-                      Colors.orange,
-                      () async {
-                        await Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => const ManageProjectsPage(),
-                          ),
-                        );
-                        _loadStats();
-                      },
-                    ),
-                    const SizedBox(height: 12),
+                    
                     _buildManagementOption(
                       'Manage Freelancing Hub',
-                      'Post and manage freelance projects',
+                      'Post projects and view applications',
                       Icons.work_outline,
                       Colors.red,
                       () async {
@@ -462,26 +499,29 @@ class _AdminHomePageState extends State<AdminHomePage> {
                       },
                     ),
                     const SizedBox(height: 12),
+                    
                     _buildManagementOption(
-                      'View Applications',
-                      'View all freelance project applications',
-                      Icons.assignment_ind_outlined,
-                      Colors.deepPurple,
+                      'Manage Announcements',
+                      'Schedule and manage events & announcements',
+                      Icons.campaign_outlined,
+                      Colors.purple,
                       () async {
-                        Navigator.push(
+                        await Navigator.push(
                           context,
                           MaterialPageRoute(
-                            builder: (_) => const ManageApplicationsPage(),
+                            builder: (_) => const ManageAnnouncementsPage(),
                           ),
                         );
+                        _loadStats();
                       },
                     ),
                     const SizedBox(height: 12),
+                    
                     _buildManagementOption(
                       'Manage Events',
-                      'Create and manage events',
+                      'View and manage events from events table',
                       Icons.event_outlined,
-                      Colors.purple,
+                      Colors.blue,
                       () async {
                         await Navigator.push(
                           context,
@@ -490,37 +530,6 @@ class _AdminHomePageState extends State<AdminHomePage> {
                           ),
                         );
                         _loadStats();
-                      },
-                    ),
-                    const SizedBox(height: 12),
-                    _buildManagementOption(
-                      'Manage Opportunities',
-                      'Job and internship postings',
-                      Icons.business_center_outlined,
-                      Colors.teal,
-                      () async {
-                        await Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => const ManageOpportunitiesPage(),
-                          ),
-                        );
-                        _loadStats();
-                      },
-                    ),
-                    const SizedBox(height: 12),
-                    _buildManagementOption(
-                      'Admin Reports',
-                      'View analytics and reports',
-                      Icons.assessment_outlined,
-                      Colors.indigo,
-                      () async {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => const AdminReportsPage(),
-                          ),
-                        );
                       },
                     ),
                   ],
