@@ -3,7 +3,6 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'manage_users_page.dart';
 import 'manage_posts_by_category_page.dart';
-import 'manage_events_page.dart';  // ✅ Events table
 import 'manage_announcements_page.dart';  // ✅ Announcement table
 import 'manage_freelancing_page.dart';
 import 'manage_feedback_page.dart';
@@ -19,7 +18,7 @@ class _AdminHomePageState extends State<AdminHomePage> {
   int _totalUsers = 0;
   int _totalPosts = 0;
   int _totalFreelanceProjects = 0;
-  int _totalEvents = 0;
+  int _totalAnnouncements = 0;
   int _pendingFeedback = 0;
   int _pendingReports = 0;
   int _unreadNotifications = 0;
@@ -64,16 +63,18 @@ class _AdminHomePageState extends State<AdminHomePage> {
       }
 
       // Events count
-      int eventsCount = 0;
-      try {
-        final eventsData = await Supabase.instance.client
-            .from('events')
-            .select('event_id');
-        eventsCount = (eventsData as List).length;
-        debugPrint('✅ Events count: $eventsCount');
-      } catch (e) {
-        debugPrint('❌ Error counting events: $e');
-      }
+      // Announcements count
+int announcementsCount = 0;
+try {
+  final announcementsData = await Supabase.instance.client
+      .from('announcement') // ✅ your announcements table
+      .select('ann_id');
+  announcementsCount = (announcementsData as List).length;
+  debugPrint('✅ Announcements count: $announcementsCount');
+} catch (e) {
+  debugPrint('❌ Error counting announcements: $e');
+}
+
 
       // Freelance projects count
       int freelanceCount = 0;
@@ -130,7 +131,7 @@ class _AdminHomePageState extends State<AdminHomePage> {
         _totalUsers = usersCount;
         _totalPosts = postsCount;
         _totalFreelanceProjects = freelanceCount;
-        _totalEvents = eventsCount;
+        _totalAnnouncements = announcementsCount;
         _pendingFeedback = feedbackCount;
         _pendingReports = reportsCount;
         _unreadNotifications = notificationsCount;
@@ -408,15 +409,15 @@ class _AdminHomePageState extends State<AdminHomePage> {
                           ),
                         ),
                         const SizedBox(width: 12),
-                        Expanded(
-                          child: _buildStatCard(
-                            'Events',
-                            _totalEvents.toString(),
-                            Icons.event,
-                            Colors.purple,
-                          ),
-                        ),
-                      ],
+                       Expanded(
+  child: _buildStatCard(
+    'Announcements',
+    _totalAnnouncements.toString(),
+    Icons.campaign,
+    Colors.purple,
+  ),
+),
+],
                     ),
 
                     const SizedBox(height: 32),
@@ -517,21 +518,6 @@ class _AdminHomePageState extends State<AdminHomePage> {
                     ),
                     const SizedBox(height: 12),
                     
-                    _buildManagementOption(
-                      'Manage Events',
-                      'View and manage events from events table',
-                      Icons.event_outlined,
-                      Colors.blue,
-                      () async {
-                        await Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => const ManageEventsPage(),
-                          ),
-                        );
-                        _loadStats();
-                      },
-                    ),
                   ],
                 ),
               ),
