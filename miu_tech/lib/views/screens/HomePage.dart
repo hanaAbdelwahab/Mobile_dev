@@ -27,6 +27,7 @@ import '../widgets/freelance_project_card.dart';
 import 'OtherUserProfilePage.dart'; 
 import '../../providers/FreelancingHubProvider.dart';
 import '../../providers/friendship_provider.dart';
+import '../../providers/message_provider.dart';
 final supabase = Supabase.instance.client;
 class FeedItem {
   final PostModel? post;
@@ -413,7 +414,11 @@ class _HomePageState extends State<HomePage> {
     final freelancingProvider = context.read<FreelancingHubProvider>();
       freelancingProvider.loadProjects();
       freelancingProvider.loadSavedProjects();        // ✅ No userId parameter
-      freelancingProvider.loadUserApplications();     // ✅ No userId parameter
+      freelancingProvider.loadUserApplications();   
+       final messageProvider = context.read<MessageProvider>();
+        messageProvider.loadUnreadCount(widget.currentUserId);
+        messageProvider.subscribeToMessages(widget.currentUserId);  
+        // ✅ No userId parameter
     });
      @override
   void dispose() {

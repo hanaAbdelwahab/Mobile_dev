@@ -3,7 +3,9 @@ import '../screens/AddPostScreen.dart';
 import '../screens/My_Profile.dart';
 import '../screens/messaging_page.dart';
 import '../screens/notifications_page.dart';
-import '../screens/HomePage.dart';
+import '../screens/calender_screen.dart';
+import 'package:provider/provider.dart';
+import '../../providers/message_provider.dart';
 
 class BottomNavbar extends StatelessWidget {
   final int? currentUserId;
@@ -15,82 +17,89 @@ class BottomNavbar extends StatelessWidget {
     this.currentIndex = 0,
   });
 
-void _onItemTapped(BuildContext context, int index) {
-  // Handle navigation based on index
-  switch (index) {
-    case 0: // HOME
-      if (currentIndex != 0) {
-        // Not on home - pop back to home
-        Navigator.of(context).popUntil((route) => route.isFirst);
-      } else {
-        // Already on home - create fresh HomePage to trigger refresh
-        if (currentUserId != null) {
-          Navigator.of(context).pushReplacement(
-            MaterialPageRoute(
-              builder: (context) => HomePage(currentUserId: currentUserId!),
-            ),
-          );
+  void _onItemTapped(BuildContext context, int index) {
+    if (index == currentIndex) return;
+
+    switch (index) {
+      case 0: // HOME
+        if (currentIndex != 0) {
+          Navigator.of(context).popUntil((route) => route.isFirst);
         }
-      }
-      break;
+        break;
 
-    case 1: // CHAT
-      if (currentUserId != null) {
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (_) => ChatsListPage(currentUserId: currentUserId!),
-          ),
-        );
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Please log in to access chat')),
-        );
-      }
-      break;
-
-    case 2: // NOTIFICATIONS
-      if (currentUserId != null) {
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (_) => NotificationsPage(userId: currentUserId!),
-          ),
-        );
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Please log in to access notifications')),
-        );
-      }
-      break;
-
-    case 3: // PROFILE
-      if (currentUserId != null) {
-        if (currentIndex != 3) {
+      case 1: // CHAT
+        if (currentUserId != null) {
+          // ✅ NEW: Reload unread count before navigating to chat
+          final messageProvider = Provider.of<MessageProvider>(context, listen: false);
+          messageProvider.loadUnreadCount(currentUserId!);
+          
           Navigator.push(
             context,
             MaterialPageRoute(
-              builder: (context) => MyProfile(userId: currentUserId!),
+              builder: (_) => ChatsListPage(currentUserId: currentUserId!),
             ),
+          ).then((_) {
+            // ✅ NEW: Reload count when returning from chat page
+            messageProvider.loadUnreadCount(currentUserId!);
+          });
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Please log in to access chat')),
           );
         }
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Please log in to access profile')),
-        );
-      }
-      break;
+        break;
+
+      case 2: // NOTIFICATIONS
+        if (currentUserId != null) {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => NotificationsPage(userId: currentUserId!),
+            ),
+          );
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Please log in to access notifications')),
+          );
+        }
+        break;
+
+      case 3: // PROFILE
+        if (currentUserId != null) {
+          if (currentIndex != 3) {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => MyProfile(userId: currentUserId!),
+              ),
+            );
+          }
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Please log in to access profile')),
+          );
+        }
+        break;
+    }
   }
-}
 
   @override
   Widget build(BuildContext context) {
+    // ✅ NEW: Initialize MessageProvider when navbar is built
+    if (currentUserId != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        final messageProvider = Provider.of<MessageProvider>(context, listen: false);
+        if (!messageProvider.isInitialized) {
+          messageProvider.initialize(currentUserId!);
+        }
+      });
+    }
+
     return SizedBox(
       height: 85,
       child: Stack(
         clipBehavior: Clip.none,
         children: [
-          // Bottom Navigation Bar Container
           Container(
             height: 75,
             padding: const EdgeInsets.symmetric(horizontal: 8),
@@ -107,45 +116,56 @@ void _onItemTapped(BuildContext context, int index) {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: [
-                // HOME
-                _NavItem(
-                  icon: Icons.home,
-                  label: "Home",
-                  selected: currentIndex == 0,
-                  onTap: () => _onItemTapped(context, 0),
+                Expanded(
+                  child: _NavItem(
+                    icon: Icons.home,
+                    label: "Home",
+                    selected: currentIndex == 0,
+                    onTap: () => _onItemTapped(context, 0),
+                  ),
                 ),
                 
-                // CHAT
-                _NavItem(
-                  icon: Icons.chat,
-                  label: "Chat",
-                  selected: currentIndex == 1,
-                  onTap: () => _onItemTapped(context, 1),
+                // ✅ CHAT WITH DYNAMIC UNREAD BADGE
+                Expanded(
+                  child: Consumer<MessageProvider>(
+                    builder: (context, messageProvider, child) {
+                      // ✅ Get the actual unread count from provider
+                      final unreadCount = messageProvider.unreadCount;
+                      
+                      return _NavItemWithBadge(
+                        icon: Icons.chat,
+                        label: "Chat",
+                        selected: currentIndex == 1,
+                        badgeCount: unreadCount, // ✅ Use dynamic count
+                        onTap: () => _onItemTapped(context, 1),
+                      );
+                    },
+                  ),
                 ),
                 
-                // Empty space for floating button
                 const SizedBox(width: 55),
                 
-                // NOTIFICATIONS
-                _NavItem(
-                  icon: Icons.notifications,
-                  label: "Notifications",
-                  selected: currentIndex == 2,
-                  onTap: () => _onItemTapped(context, 2),
+                Expanded(
+                  child: _NavItem(
+                    icon: Icons.notifications,
+                    label: "Notifications",
+                    selected: currentIndex == 2,
+                    onTap: () => _onItemTapped(context, 2),
+                  ),
                 ),
                 
-                // PROFILE
-                _NavItem(
-                  icon: Icons.person,
-                  label: "Profile",
-                  selected: currentIndex == 3,
-                  onTap: () => _onItemTapped(context, 3),
+                Expanded(
+                  child: _NavItem(
+                    icon: Icons.person,
+                    label: "Profile",
+                    selected: currentIndex == 3,
+                    onTap: () => _onItemTapped(context, 3),
+                  ),
                 ),
               ],
             ),
           ),
           
-          // Floating Add Button
           Positioned(
             top: -20,
             left: 0,
@@ -169,41 +189,21 @@ void _onItemTapped(BuildContext context, int index) {
                     ),
                   ],
                 ),
-child: IconButton(
-  onPressed: () async {
-    // Navigate to Add Post Screen and wait for result
-    final result = await Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => AddPostScreen(
-          currentUserId: currentUserId,
-        ),
-      ),
-    );
-    
-    // If post was created successfully, pop to home and it will auto-refresh
-    if (result != null && result is Map && result['refresh'] == true) {
-      // Pop all routes to get back to home (which will rebuild)
-      Navigator.of(context).popUntil((route) => route.isFirst);
-      
-      // Show success message
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Post created successfully!'),
-          backgroundColor: Colors.green,
-          duration: Duration(seconds: 2),
-        ),
-      );
-    }
-  },
-  icon: const Icon(
-    Icons.add,
-    color: Colors.white,
-    size: 36,
-  ),
-),
-
-
+                child: IconButton(
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const AddPostScreen(),
+                      ),
+                    );
+                  },
+                  icon: const Icon(
+                    Icons.add,
+                    color: Colors.white,
+                    size: 36,
+                  ),
+                ),
               ),
             ),
           ),
@@ -212,9 +212,7 @@ child: IconButton(
     );
   }
 }
-// ============================================================
-// Bottom Nav Item Widget
-// ============================================================
+
 class _NavItem extends StatelessWidget {
   final IconData icon;
   final String label;
@@ -232,24 +230,119 @@ class _NavItem extends StatelessWidget {
   Widget build(BuildContext context) {
     return GestureDetector(
       onTap: onTap,
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(
-            icon,
-            size: 24,
-            color: selected ? Colors.red : Colors.grey,
-          ),
-          const SizedBox(height: 2),
-          Text(
-            label,
-            style: TextStyle(
-              fontSize: 11,
-              fontWeight: selected ? FontWeight.bold : FontWeight.normal,
+      child: Container(
+        color: Colors.transparent,
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              icon,
+              size: 24,
               color: selected ? Colors.red : Colors.grey,
             ),
-          ),
-        ],
+            const SizedBox(height: 2),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: selected ? FontWeight.bold : FontWeight.normal,
+                color: selected ? Colors.red : Colors.grey,
+              ),
+              textAlign: TextAlign.center,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _NavItemWithBadge extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final bool selected;
+  final int badgeCount;
+  final VoidCallback? onTap;
+
+  const _NavItemWithBadge({
+    required this.icon,
+    required this.label,
+    this.selected = false,
+    this.badgeCount = 0,
+    this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        color: Colors.transparent,
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            SizedBox(
+              width: 40,
+              height: 28,
+              child: Stack(
+                clipBehavior: Clip.none,
+                alignment: Alignment.center,
+                children: [
+                  Icon(
+                    icon,
+                    size: 24,
+                    color: selected ? Colors.red : Colors.grey,
+                  ),
+                  
+                  // ✅ ONLY SHOW BADGE IF COUNT > 0
+                  if (badgeCount > 0)
+                    Positioned(
+                      right: 0,
+                      top: 0,
+                      child: Container(
+                        padding: const EdgeInsets.all(4),
+                        decoration: const BoxDecoration(
+                          color: Colors.red,
+                          shape: BoxShape.circle,
+                        ),
+                        constraints: const BoxConstraints(
+                          minWidth: 16,
+                          minHeight: 16,
+                        ),
+                        child: Center(
+                          child: Text(
+                            badgeCount > 99 ? '99+' : '$badgeCount',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 9,
+                              fontWeight: FontWeight.bold,
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 2),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: selected ? FontWeight.bold : FontWeight.normal,
+                color: selected ? Colors.red : Colors.grey,
+              ),
+              textAlign: TextAlign.center,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ],
+        ),
       ),
     );
   }
