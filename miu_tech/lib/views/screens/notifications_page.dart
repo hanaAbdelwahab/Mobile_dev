@@ -1,6 +1,7 @@
-
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:provider/provider.dart';
+import '../../providers/friendship_provider.dart';
 
 
 final supabase = Supabase.instance.client;
@@ -131,14 +132,20 @@ Future<void> acceptFollow(int fromUserId, String senderName) async {
 
     final currentUserName = currentUserData['name'] ?? 'Someone';
 
-   await supabase.from('notifications').insert({
-  'user_id': fromUserId,
-  'type': 'follow_accepted',
-  'title': 'Friend Request Accepted',
-  'body': '$currentUserName accepted your follow request, you are now friends!!',
-  'is_read': false,
-  'from_user_id': widget.userId,
-});
+    await supabase.from('notifications').insert({
+      'user_id': fromUserId,
+      'type': 'follow_accepted',
+      'title': 'Friend Request Accepted',
+      'body': '$currentUserName accepted your follow request, you are now friends!!',
+      'is_read': false,
+      'from_user_id': widget.userId,
+    });
+
+    // 5. Update provider to sync across all pages
+    if (mounted) {
+      final provider = Provider.of<FriendshipProvider>(context, listen: false);
+      provider.updateStatus(fromUserId, {'status': 'accepted', 'type': 'friendship'});
+    }
 
     print('✅ Follow request accepted and notification sent');
     
@@ -163,7 +170,6 @@ Future<void> acceptFollow(int fromUserId, String senderName) async {
     }
   }
 }
-
 Future<void> rejectFollow(int fromUserId) async {
   try {
     print('🔄 Rejecting follow request from: $fromUserId');
@@ -183,6 +189,12 @@ Future<void> rejectFollow(int fromUserId) async {
         .eq('from_user_id', fromUserId)
         .eq('user_id', widget.userId)
         .eq('type', 'follow_request');
+
+    // 3. Update provider to sync across all pages
+    if (mounted) {
+      final provider = Provider.of<FriendshipProvider>(context, listen: false);
+      provider.updateStatus(fromUserId, null);
+    }
 
     print('✅ Follow request rejected');
     
@@ -207,7 +219,6 @@ Future<void> rejectFollow(int fromUserId) async {
     }
   }
 }
-
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFF0F0F0),
@@ -439,4 +450,3 @@ if (senderRole != null) ...[
 }
 
 }
-

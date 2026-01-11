@@ -1,10 +1,11 @@
-
 import 'package:flutter/material.dart';
 import 'send_post_dialog.dart';
 import 'chat_room_page.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
+import '../../providers/friendship_provider.dart';
+import 'package:provider/provider.dart';
 
 final supabase = Supabase.instance.client;
 
@@ -227,6 +228,7 @@ Future<void> fetchFollowerCounts() async {
 Future<void> toggleFollow() async {
   try {
     print('🔄 Toggle follow called');
+    final provider = Provider.of<FriendshipProvider>(context, listen: false);
     
     // Check if already friends (accepted friendship)
     final existingFriendship = await supabase
@@ -242,6 +244,9 @@ Future<void> toggleFollow() async {
           .from('friendships')
           .delete()
           .or('and(user_id.eq.${int.parse(mockCurrentUserId)},friend_id.eq.${int.parse(widget.userId)}),and(user_id.eq.${int.parse(widget.userId)},friend_id.eq.${int.parse(mockCurrentUserId)})');
+      
+      // Update provider
+      provider.updateStatus(int.parse(widget.userId), null);
       
       setState(() => isFollowing = false);
       await fetchFollowerCounts();
@@ -275,6 +280,9 @@ Future<void> toggleFollow() async {
             .eq('user_id', int.parse(widget.userId))
             .eq('from_user_id', int.parse(mockCurrentUserId))
             .eq('type', 'follow_request');
+        
+        // Update provider
+        provider.updateStatus(int.parse(widget.userId), null);
         
         setState(() {});
         _showSuccess('Request cancelled');
@@ -327,14 +335,17 @@ Future<void> toggleFollow() async {
           .eq('type', 'follow_request');
 
       // Send acceptance notification
-await supabase.from('notifications').insert({
-  'user_id': int.parse(widget.userId),
-  'type': 'follow_accepted',
-  'title': 'Friend Request Accepted',
-  'body': '${currentUsername ?? 'Someone'} accepted your follow request, you are now friends!!',
-  'is_read': false,
-  'from_user_id': int.parse(mockCurrentUserId),
-});
+      await supabase.from('notifications').insert({
+        'user_id': int.parse(widget.userId),
+        'type': 'follow_accepted',
+        'title': 'Friend Request Accepted',
+        'body': '${currentUsername ?? 'Someone'} accepted your follow request, you are now friends!!',
+        'is_read': false,
+        'from_user_id': int.parse(mockCurrentUserId),
+      });
+      
+      // Update provider
+      provider.updateStatus(int.parse(widget.userId), {'status': 'accepted', 'type': 'friendship'});
       
       setState(() => isFollowing = true);
       await fetchFollowerCounts();
@@ -345,26 +356,29 @@ await supabase.from('notifications').insert({
     // No existing relationship - send new friend request
     print('📝 Creating new friend request from $mockCurrentUserId to ${widget.userId}');
     
-   // Create friendship request
-final insertedRequest = await supabase.from('friendship_requests').insert({
-  'requester_id': int.parse(mockCurrentUserId),
-  'receiver_id': int.parse(widget.userId),
-  'status': 'pending',
-}).select();
+    // Create friendship request
+    final insertedRequest = await supabase.from('friendship_requests').insert({
+      'requester_id': int.parse(mockCurrentUserId),
+      'receiver_id': int.parse(widget.userId),
+      'status': 'pending',
+    }).select();
 
     print('✅ Request created: $insertedRequest');
 
     // Create notification
-final insertedNotification = await supabase.from('notifications').insert({
-  'user_id': int.parse(widget.userId),
-  'type': 'follow_request',
-  'title': 'New Follow Request',
-  'body': '${currentUsername ?? 'Someone'} wants to follow you',
-  'is_read': false,
-  'from_user_id': int.parse(mockCurrentUserId),
-}).select();
+    final insertedNotification = await supabase.from('notifications').insert({
+      'user_id': int.parse(widget.userId),
+      'type': 'follow_request',
+      'title': 'New Follow Request',
+      'body': '${currentUsername ?? 'Someone'} wants to follow you',
+      'is_read': false,
+      'from_user_id': int.parse(mockCurrentUserId),
+    }).select();
 
     print('✅ Notification created: $insertedNotification');
+
+    // Update provider
+    provider.updateStatus(int.parse(widget.userId), {'status': 'pending', 'type': 'sent'});
 
     setState(() {});
     _showSuccess('Follow request sent!');
@@ -375,7 +389,6 @@ final insertedNotification = await supabase.from('notifications').insert({
     _showError('Failed to process request. Please try again.');
   }
 }
-
 
 Future<void> fetchUserAndPosts() async {
   try {
