@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:miu_tech/app_theme.dart'; // ✅ Theme import
 import '../../services/supabase_service.dart';
 import 'admin_home_page.dart';
 import 'email_verification_page.dart';
@@ -58,10 +59,13 @@ class _LoginPageState extends State<LoginPage> {
 
         if (!mounted) return;
         messenger.showSnackBar(
-          const SnackBar(
-            content: Text("⚠️ Please verify your email before logging in"),
-            backgroundColor: Colors.orange,
-            duration: Duration(seconds: 3),
+          SnackBar(
+            content: const Text(
+              "⚠️ Please verify your email before logging in",
+              style: TextStyle(color: Colors.white),
+            ),
+            backgroundColor: AppColors.warning,
+            duration: const Duration(seconds: 3),
           ),
         );
 
@@ -106,10 +110,13 @@ class _LoginPageState extends State<LoginPage> {
       if (!mounted) return;
       
       messenger.showSnackBar(
-        const SnackBar(
-          content: Text("✅ Login successful! Welcome back!"),
-          backgroundColor: Colors.green,
-          duration: Duration(seconds: 2),
+        SnackBar(
+          content: const Text(
+            "✅ Login successful! Welcome back!",
+            style: TextStyle(color: Colors.white),
+          ),
+          backgroundColor: AppColors.success,
+          duration: const Duration(seconds: 2),
         ),
       );
 
@@ -134,15 +141,21 @@ class _LoginPageState extends State<LoginPage> {
     } on AuthException catch (e) {
       messenger.showSnackBar(
         SnackBar(
-          content: Text("❌ ${e.message}"),
-          backgroundColor: Colors.red,
+          content: Text(
+            "❌ ${e.message}",
+            style: const TextStyle(color: Colors.white),
+          ),
+          backgroundColor: AppColors.error,
         ),
       );
     } catch (e) {
       messenger.showSnackBar(
         SnackBar(
-          content: Text("❌ Login failed: $e"),
-          backgroundColor: Colors.red,
+          content: Text(
+            "❌ Login failed: $e",
+            style: const TextStyle(color: Colors.white),
+          ),
+          backgroundColor: AppColors.error,
         ),
       );
     }
@@ -154,8 +167,11 @@ class _LoginPageState extends State<LoginPage> {
 
   @override
   Widget build(BuildContext context) {
+    // Get theme info
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: isDark ? AppColors.darkBackground : AppColors.lightBackground,
       body: SafeArea(
         child: Center(
           child: SingleChildScrollView(
@@ -165,51 +181,91 @@ class _LoginPageState extends State<LoginPage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
+                  // Logo Container
                   Container(
                     height: 100,
                     width: 100,
                     alignment: Alignment.center,
                     decoration: BoxDecoration(
-                      color: Colors.white,
-    borderRadius: BorderRadius.circular(20),
-    boxShadow: [
-      BoxShadow(
-        color: Colors.black.withOpacity(0.08),
-        blurRadius: 10,
-        offset: const Offset(0, 4),
-      ),
-    ],
-  ),
-  child: Image.asset(
-    'assets/miu_logo1.png',
-    fit: BoxFit.contain,
-  ),
-),
+                      color: isDark ? AppColors.darkCardBackground : AppColors.lightCardBackground,
+                      borderRadius: BorderRadius.circular(20),
+                      boxShadow: [
+                        BoxShadow(
+                          color: isDark ? AppColors.darkShadow : AppColors.lightShadow,
+                          blurRadius: 10,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
+                    ),
+                    child: Image.asset(
+                      'assets/miu_logo1.png',
+                      fit: BoxFit.contain,
+                    ),
+                  ),
                   const SizedBox(height: 40),
 
-                  const Text(
+                  // Welcome Text
+                  Text(
                     'Welcome Back',
-                    style: TextStyle(fontSize: 32, fontWeight: FontWeight.bold),
+                    style: TextStyle(
+                      fontSize: 32,
+                      fontWeight: FontWeight.bold,
+                      color: isDark ? AppColors.darkTextPrimary : AppColors.lightTextPrimary,
+                    ),
                     textAlign: TextAlign.center,
                   ),
                   const SizedBox(height: 8),
                   Text(
                     'Login to your account',
-                    style: TextStyle(fontSize: 16, color: Colors.grey[600]),
+                    style: TextStyle(
+                      fontSize: 16,
+                      color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
+                    ),
                     textAlign: TextAlign.center,
                   ),
                   const SizedBox(height: 40),
 
+                  // Email Field
                   TextFormField(
                     controller: _emailController,
                     keyboardType: TextInputType.emailAddress,
+                    style: TextStyle(
+                      color: isDark ? AppColors.darkTextPrimary : AppColors.lightTextPrimary,
+                    ),
                     decoration: InputDecoration(
                       labelText: 'MIU Email',
+                      labelStyle: TextStyle(
+                        color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
+                      ),
                       hintText: 'example@miuegypt.edu.eg',
-                      prefixIcon: const Icon(Icons.email_outlined, color: Colors.red),
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                      hintStyle: TextStyle(
+                        color: isDark ? AppColors.darkTextTertiary : AppColors.lightTextTertiary,
+                      ),
+                      prefixIcon: const Icon(
+                        Icons.email_outlined,
+                        color: AppColors.primaryRed,
+                      ),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide(
+                          color: isDark ? AppColors.darkDivider : AppColors.lightDivider,
+                        ),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide(
+                          color: isDark ? AppColors.darkDivider : AppColors.lightDivider,
+                        ),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: const BorderSide(
+                          color: AppColors.primaryRed,
+                          width: 2,
+                        ),
+                      ),
                       filled: true,
-                      fillColor: Colors.grey[50],
+                      fillColor: isDark ? AppColors.darkSurfaceVariant : AppColors.lightSurfaceVariant,
                     ),
                     validator: (value) {
                       if (value == null || value.isEmpty) {
@@ -223,22 +279,50 @@ class _LoginPageState extends State<LoginPage> {
                   ),
                   const SizedBox(height: 20),
 
+                  // Password Field
                   TextFormField(
                     controller: _passwordController,
                     obscureText: _obscurePassword,
+                    style: TextStyle(
+                      color: isDark ? AppColors.darkTextPrimary : AppColors.lightTextPrimary,
+                    ),
                     decoration: InputDecoration(
                       labelText: 'Password',
-                      prefixIcon: const Icon(Icons.lock_outline, color: Colors.red),
+                      labelStyle: TextStyle(
+                        color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
+                      ),
+                      prefixIcon: const Icon(
+                        Icons.lock_outline,
+                        color: AppColors.primaryRed,
+                      ),
                       suffixIcon: IconButton(
                         icon: Icon(
                           _obscurePassword ? Icons.visibility_off : Icons.visibility,
-                          color: Colors.grey[600],
+                          color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
                         ),
                         onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
                       ),
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide(
+                          color: isDark ? AppColors.darkDivider : AppColors.lightDivider,
+                        ),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide(
+                          color: isDark ? AppColors.darkDivider : AppColors.lightDivider,
+                        ),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: const BorderSide(
+                          color: AppColors.primaryRed,
+                          width: 2,
+                        ),
+                      ),
                       filled: true,
-                      fillColor: Colors.grey[50],
+                      fillColor: isDark ? AppColors.darkSurfaceVariant : AppColors.lightSurfaceVariant,
                     ),
                     validator: (value) {
                       if (value == null || value.isEmpty) {
@@ -252,22 +336,29 @@ class _LoginPageState extends State<LoginPage> {
                   ),
                   const SizedBox(height: 12),
 
+                  // Forgot Password
                   Align(
                     alignment: Alignment.centerRight,
                     child: TextButton(
                       onPressed: () => Navigator.pushNamed(context, '/forgot-password'),
-                      child: const Text('Forgot Password?', style: TextStyle(color: Colors.red)),
+                      child: const Text(
+                        'Forgot Password?',
+                        style: TextStyle(color: AppColors.primaryRed),
+                      ),
                     ),
                   ),
                   const SizedBox(height: 24),
 
+                  // Login Button
                   ElevatedButton(
                     onPressed: _isLoading ? null : _handleLogin,
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.red,
+                      backgroundColor: AppColors.primaryRed,
                       foregroundColor: Colors.white,
                       padding: const EdgeInsets.symmetric(vertical: 16),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
                       elevation: 2,
                     ),
                     child: _isLoading
@@ -281,21 +372,33 @@ class _LoginPageState extends State<LoginPage> {
                           )
                         : const Text(
                             'Login',
-                            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                            ),
                           ),
                   ),
 
                   const SizedBox(height: 24),
 
+                  // Sign Up Link
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Text("Don't have an account? ", style: TextStyle(color: Colors.grey[600])),
+                      Text(
+                        "Don't have an account? ",
+                        style: TextStyle(
+                          color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
+                        ),
+                      ),
                       GestureDetector(
                         onTap: () => Navigator.pushNamed(context, '/signup'),
                         child: const Text(
                           'Sign Up',
-                          style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold),
+                          style: TextStyle(
+                            color: AppColors.primaryRed,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
                       ),
                     ],

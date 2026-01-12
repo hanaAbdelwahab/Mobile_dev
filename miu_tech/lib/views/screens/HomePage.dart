@@ -422,9 +422,10 @@ class _HomePageState extends State<HomePage> {
       freelancingProvider.loadProjects();
       freelancingProvider.loadSavedProjects();        // ✅ No userId parameter
       freelancingProvider.loadUserApplications();   
+
        final messageProvider = context.read<MessageProvider>();
         messageProvider.loadUnreadCount(widget.currentUserId);
-        messageProvider.subscribeToMessages(widget.currentUserId);  
+        messageProvider.subscribeToMessages(widget.currentUserId);
         // ✅ No userId parameter
     });
      @override
