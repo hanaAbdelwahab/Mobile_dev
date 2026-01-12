@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:miu_tech/app_theme.dart';
 import 'dart:math';
 import 'reset_password_with_otp_page.dart';
 
@@ -14,7 +15,7 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
   final _formKey = GlobalKey<FormState>();
   final _emailController = TextEditingController();
   final _otpController = TextEditingController();
-  
+
   bool _isLoading = false;
   bool _otpSent = false;
   String? _generatedOtp;
@@ -132,7 +133,6 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
           behavior: SnackBarBehavior.floating,
         ),
       );
-
     } catch (e) {
       print('❌ Error sending OTP: $e');
       if (!mounted) return;
@@ -191,23 +191,25 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
 
       if (otpRecord == null) {
         if (!mounted) return;
-        
+
         // Check if there's any OTP for this email
         final anyOtp = await Supabase.instance.client
             .from('password_reset_otps')
             .select()
             .eq('email', email)
             .maybeSingle();
-        
+
         if (anyOtp != null) {
-          print("❌ OTP mismatch! Expected: ${anyOtp['otp']}, Got: $enteredOtp");
+          print(
+              "❌ OTP mismatch! Expected: ${anyOtp['otp']}, Got: $enteredOtp");
         } else {
           print("❌ No OTP record found for this email");
         }
-        
+
         messenger.showSnackBar(
           const SnackBar(
-            content: Text('❌ Invalid verification code. Please check and try again.'),
+            content:
+                Text('❌ Invalid verification code. Please check and try again.'),
             backgroundColor: Colors.red,
             duration: Duration(seconds: 3),
           ),
@@ -221,12 +223,13 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
       print("⏰ Current time: ${DateTime.now()}");
       print("⏰ Expiry time: $expiryTime");
       print("⏰ Is expired: ${DateTime.now().isAfter(expiryTime)}");
-      
+
       if (DateTime.now().isAfter(expiryTime)) {
         if (!mounted) return;
         messenger.showSnackBar(
           const SnackBar(
-            content: Text('❌ Verification code expired. Please request a new one.'),
+            content:
+                Text('❌ Verification code expired. Please request a new one.'),
             backgroundColor: Colors.red,
           ),
         );
@@ -245,7 +248,7 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
       print("🗑️ OTP deleted from database");
 
       if (!mounted) return;
-      
+
       messenger.showSnackBar(
         const SnackBar(
           content: Text('✅ Email verified! You can now reset your password.'),
@@ -260,7 +263,6 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
           builder: (_) => ResetPasswordWithOtpPage(email: email),
         ),
       );
-
     } catch (e) {
       print('❌ Error verifying OTP: $e');
       if (!mounted) return;
@@ -279,13 +281,22 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: isDark
+          ? AppColors.darkBackground
+          : AppColors.lightBackground,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.black),
+          icon: Icon(
+            Icons.arrow_back,
+            color: isDark
+                ? AppColors.darkTextPrimary
+                : AppColors.lightTextPrimary,
+          ),
           onPressed: () => Navigator.pop(context),
         ),
       ),
@@ -304,7 +315,7 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
                     width: 100,
                     alignment: Alignment.center,
                     decoration: BoxDecoration(
-                      color: Colors.red,
+                      color: AppColors.primaryRed,
                       borderRadius: BorderRadius.circular(20),
                     ),
                     child: Icon(
@@ -318,9 +329,12 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
                   // Title
                   Text(
                     _otpSent ? 'Verify Email' : 'Forgot Password?',
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 32,
                       fontWeight: FontWeight.bold,
+                      color: isDark
+                          ? AppColors.darkTextPrimary
+                          : AppColors.lightTextPrimary,
                     ),
                     textAlign: TextAlign.center,
                   ),
@@ -331,7 +345,9 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
                         : 'Enter your email to receive a verification code',
                     style: TextStyle(
                       fontSize: 16,
-                      color: Colors.grey[600],
+                      color: isDark
+                          ? AppColors.darkTextSecondary
+                          : AppColors.lightTextSecondary,
                     ),
                     textAlign: TextAlign.center,
                   ),
@@ -342,15 +358,59 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
                     controller: _emailController,
                     keyboardType: TextInputType.emailAddress,
                     enabled: !_otpSent,
+                    style: TextStyle(
+                      color: isDark
+                          ? AppColors.darkTextPrimary
+                          : AppColors.lightTextPrimary,
+                    ),
                     decoration: InputDecoration(
                       labelText: 'MIU Email',
+                      labelStyle: TextStyle(
+                        color: isDark
+                            ? AppColors.darkTextSecondary
+                            : AppColors.lightTextSecondary,
+                      ),
                       hintText: 'example@miuegypt.edu.eg',
-                      prefixIcon: const Icon(Icons.email_outlined, color: Colors.red),
+                      hintStyle: TextStyle(
+                        color: isDark
+                            ? AppColors.darkTextTertiary
+                            : AppColors.lightTextTertiary,
+                      ),
+                      prefixIcon: Icon(
+                        Icons.email_outlined,
+                        color: AppColors.primaryRed,
+                      ),
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide(
+                          color: isDark
+                              ? AppColors.darkDivider
+                              : AppColors.lightDivider,
+                        ),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide(
+                          color: isDark
+                              ? AppColors.darkDivider
+                              : AppColors.lightDivider,
+                        ),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide(
+                          color: AppColors.primaryRed,
+                          width: 2,
+                        ),
                       ),
                       filled: true,
-                      fillColor: _otpSent ? Colors.grey[200] : Colors.grey[50],
+                      fillColor: _otpSent
+                          ? (isDark
+                              ? AppColors.darkSurfaceVariant.withOpacity(0.5)
+                              : AppColors.lightSurfaceVariant)
+                          : (isDark
+                              ? AppColors.darkSurfaceVariant
+                              : AppColors.lightSurfaceVariant),
                     ),
                     validator: (value) {
                       if (value == null || value.isEmpty) {
@@ -369,15 +429,55 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
                     TextFormField(
                       controller: _otpController,
                       keyboardType: TextInputType.number,
+                      style: TextStyle(
+                        color: isDark
+                            ? AppColors.darkTextPrimary
+                            : AppColors.lightTextPrimary,
+                      ),
                       decoration: InputDecoration(
                         labelText: 'Verification Code',
+                        labelStyle: TextStyle(
+                          color: isDark
+                              ? AppColors.darkTextSecondary
+                              : AppColors.lightTextSecondary,
+                        ),
                         hintText: 'Enter 6-digit code',
-                        prefixIcon: const Icon(Icons.pin, color: Colors.red),
+                        hintStyle: TextStyle(
+                          color: isDark
+                              ? AppColors.darkTextTertiary
+                              : AppColors.lightTextTertiary,
+                        ),
+                        prefixIcon: Icon(
+                          Icons.pin,
+                          color: AppColors.primaryRed,
+                        ),
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide(
+                            color: isDark
+                                ? AppColors.darkDivider
+                                : AppColors.lightDivider,
+                          ),
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide(
+                            color: isDark
+                                ? AppColors.darkDivider
+                                : AppColors.lightDivider,
+                          ),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide(
+                            color: AppColors.primaryRed,
+                            width: 2,
+                          ),
                         ),
                         filled: true,
-                        fillColor: Colors.grey[50],
+                        fillColor: isDark
+                            ? AppColors.darkSurfaceVariant
+                            : AppColors.lightSurfaceVariant,
                       ),
                     ),
                     const SizedBox(height: 12),
@@ -386,20 +486,30 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
                       children: [
                         Text(
                           "Didn't receive code? ",
-                          style: TextStyle(color: Colors.grey[600]),
+                          style: TextStyle(
+                            color: isDark
+                                ? AppColors.darkTextSecondary
+                                : AppColors.lightTextSecondary,
+                          ),
                         ),
                         GestureDetector(
-                          onTap: _isLoading ? null : () {
-                            setState(() {
-                              _otpSent = false;
-                              _otpController.clear();
-                            });
-                            _sendOTP();
-                          },
+                          onTap: _isLoading
+                              ? null
+                              : () {
+                                  setState(() {
+                                    _otpSent = false;
+                                    _otpController.clear();
+                                  });
+                                  _sendOTP();
+                                },
                           child: Text(
                             'Resend',
                             style: TextStyle(
-                              color: _isLoading ? Colors.grey : Colors.red,
+                              color: _isLoading
+                                  ? (isDark
+                                      ? AppColors.darkTextTertiary
+                                      : AppColors.lightTextTertiary)
+                                  : AppColors.primaryRed,
                               fontWeight: FontWeight.bold,
                             ),
                           ),
@@ -412,16 +522,19 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
 
                   // Action Button
                   ElevatedButton(
-                    onPressed: _isLoading ? null : (_otpSent ? _verifyOTP : _sendOTP),
+                    onPressed:
+                        _isLoading ? null : (_otpSent ? _verifyOTP : _sendOTP),
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.red,
+                      backgroundColor: AppColors.primaryRed,
                       foregroundColor: Colors.white,
                       padding: const EdgeInsets.symmetric(vertical: 16),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12),
                       ),
                       elevation: 2,
-                      disabledBackgroundColor: Colors.grey[300],
+                      disabledBackgroundColor: isDark
+                          ? AppColors.darkSurfaceVariant
+                          : AppColors.lightSurfaceVariant,
                     ),
                     child: _isLoading
                         ? const SizedBox(
@@ -429,11 +542,14 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
                             width: 20,
                             child: CircularProgressIndicator(
                               strokeWidth: 2,
-                              valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                              valueColor:
+                                  AlwaysStoppedAnimation<Color>(Colors.white),
                             ),
                           )
                         : Text(
-                            _otpSent ? 'Verify Code' : 'Send Verification Code',
+                            _otpSent
+                                ? 'Verify Code'
+                                : 'Send Verification Code',
                             style: const TextStyle(
                               fontSize: 16,
                               fontWeight: FontWeight.bold,
@@ -448,14 +564,18 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
                     children: [
                       Text(
                         "Remember your password? ",
-                        style: TextStyle(color: Colors.grey[600]),
+                        style: TextStyle(
+                          color: isDark
+                              ? AppColors.darkTextSecondary
+                              : AppColors.lightTextSecondary,
+                        ),
                       ),
                       GestureDetector(
                         onTap: () => Navigator.pop(context),
-                        child: const Text(
+                        child: Text(
                           'Login',
                           style: TextStyle(
-                            color: Colors.red,
+                            color: AppColors.primaryRed,
                             fontWeight: FontWeight.bold,
                           ),
                         ),
